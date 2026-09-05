@@ -29,14 +29,18 @@ function toast(msg, ms = 1600) {
   const t = $('toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), ms);
 }
-function ask(title, placeholder, okLabel = 'Create') {
+// Text prompt. The input sits in a <form method="dialog">, so the keyboard's Enter/Done key submits it
+// natively on Android (a keydown handler alone misses IME "Enter" events and left the text lost).
+function ask(title, placeholder, okLabel = 'Create', { profile = false } = {}) {
   return new Promise(res => {
-    const d = $('dlgName'), inp = $('dlgInput');
+    const d = $('dlgName'), inp = $('dlgInput'), form = $('dlgForm');
     $('dlgTitle').textContent = title; inp.value = ''; inp.placeholder = placeholder;
+    $('dlgProfileWrap').hidden = !profile;
     d.querySelector('.ok').textContent = okLabel;
-    d.onclose = () => res(d.returnValue === 'ok' && inp.value.trim() ? inp.value.trim() : null);
-    d.querySelectorAll('button').forEach(b => b.onclick = () => d.close(b.value));
-    inp.onkeydown = e => { if (e.key === 'Enter') d.close('ok'); };
+    d.returnValue = '';
+    form.onsubmit = e => { e.preventDefault(); d.close(inp.value.trim() ? 'ok' : 'cancel'); };
+    d.querySelector('[value="cancel"]').onclick = () => d.close('cancel');
+    d.onclose = () => res(d.returnValue === 'ok' ? inp.value.trim() : null);
     d.showModal(); setTimeout(() => inp.focus(), 50);
   });
 }
@@ -61,9 +65,7 @@ $('newInsp').onclick = async () => {
   const profiles = loadProfiles(), def = defaultProfile(profiles);
   const sel = $('dlgProfile'); sel.innerHTML = '';
   profiles.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = `${p.name} (${p.rooms.length})`; o.selected = p.id === def.id; sel.appendChild(o); });
-  $('dlgProfileWrap').hidden = profiles.length < 2;
-  const name = await ask('New inspection', '12 Baker Street');
-  $('dlgProfileWrap').hidden = true;
+  const name = await ask('New inspection', '12 Baker Street', 'Create', { profile: profiles.length > 1 });
   if (!name) return;
   const prof = profiles.find(p => p.id === sel.value) || def;
   const insp = await DB.createInspection(name, prof.rooms.length ? prof.rooms : ['General']);
@@ -239,9 +241,39 @@ async function openCamera(room) {
   show('cam');
   updateCamUI();
   $('camHint').hidden = true; $('camInfo').textContent = '';
-  try { await cam.start(); $('camInfo').textContent = cam.info(); }
-  catch (e) { $('camHint').hidden = false; $('camHint').textContent = 'Camera unavailable: ' + e.message; }
+  try {
+    await cam.start(localStorage.getItem('lens') || null);
+    $('camInfo').textContent = cam.info();
+    const devs = await cam.devices();
+    $('lensBtn').hidden = devs.length < 2;
+  } catch (e) { $('camHint').hidden = false; $('camHint').textContent = 'Camera unavailable: ' + e.message; }
 }
+// ---------- lens picker ----------
+function lensLabel(d, i) {
+  const l = (d.label || '').toLowerCase();
+  const side = /front|user/.test(l) ? 'Front' : /back|rear|environment/.test(l) ? 'Back' : '';
+  return `Camera ${i + 1}${side ? ' · ' + side : ''}`;
+}
+$('lensBtn').onclick = async () => {
+  const devs = await cam.devices(), cur = cam.currentId();
+  const box = $('lensList'); box.innerHTML = '';
+  devs.forEach((d, i) => {
+    const b = document.createElement('button'); b.className = 'card';
+    b.innerHTML = `${UI.lens}<div class="grow"><b></b><small></small></div>${d.deviceId === cur ? UI.check : ''}`;
+    b.querySelector('b').textContent = lensLabel(d, i);
+    b.querySelector('small').textContent = d.deviceId === cur ? cam.info() : (d.label || '');
+    b.onclick = async () => {
+      $('dlgLens').close();
+      if (d.deviceId === cur) return;
+      stopBurst(); cam.stop();
+      try { await cam.start(d.deviceId); localStorage.setItem('lens', d.deviceId); $('camInfo').textContent = cam.info(); toast(lensLabel(d, i), 1200); }
+      catch (e) { toast('Cannot open this camera: ' + e.message, 3000); localStorage.removeItem('lens'); await cam.start().catch(() => {}); }
+    };
+    box.appendChild(b);
+  });
+  $('dlgLens').showModal();
+};
+$('lensCancel').onclick = () => $('dlgLens').close();
 async function nextSeq(room) {
   if (state.seq[room] == null) state.seq[room] = await DB.nextSeq(state.insp.id, room);
   return state.seq[room]++;
@@ -300,7 +332,7 @@ document.querySelector('#cam [data-nav]').addEventListener('click', async () => 
   if (pending.size) { toast('Saving photos...', 1500); await Promise.all([...pending]); }
   renderRooms();
 }, { capture: true });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { stopBurst(); cam.stop(); } else if ($('cam').classList.contains('active')) cam.start().catch(() => {}); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopBurst(); cam.stop(); } else if ($('cam').classList.contains('active')) cam.start(localStorage.getItem('lens') || null).catch(() => {}); });
 window.addEventListener('beforeunload', e => { if (pending.size) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---------- boot ----------
@@ -309,5 +341,5 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 $('brandMark').innerHTML = PARROT_SVG;
 document.querySelectorAll('[data-nav]').forEach(b => { b.innerHTML = UI.back; });
 $('delInsp').innerHTML = UI.trash; $('delProfile').innerHTML = UI.trash;
-$('settingsBtn').innerHTML = UI.gear; $('addRoomForm').querySelector('button').innerHTML = UI.plus;
+$('settingsBtn').innerHTML = UI.gear; $('lensBtn').innerHTML = UI.lens; $('addRoomForm').querySelector('button').innerHTML = UI.plus;
 renderHome();

@@ -48,7 +48,10 @@
     <div class="cam-top">
       <button class="icon-btn" data-nav="rooms" aria-label="Back"></button>
       <div class="chip" id="camRoom">Room</div>
-      <div class="chip n" id="camCount">0</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="icon-btn" id="lensBtn" aria-label="Choose camera" hidden></button>
+        <div class="chip n" id="camCount">0</div>
+      </div>
     </div>
     <div id="camInfo" class="caminfo"></div>
     <div class="cam-bottom">
@@ -98,10 +101,19 @@
 </section>
 
 <dialog id="dlgName">
-  <h2 id="dlgTitle">New inspection</h2>
-  <input id="dlgInput" type="text" autocomplete="off" placeholder="12 Baker Street">
-  <label id="dlgProfileWrap" class="field" hidden><span>Room profile</span><select id="dlgProfile"></select></label>
-  <div class="row"><button value="cancel">Cancel</button><button value="ok" class="ok">Create</button></div>
+  <form method="dialog" id="dlgForm">
+    <h2 id="dlgTitle">New inspection</h2>
+    <input id="dlgInput" type="text" autocomplete="off" enterkeyhint="done" placeholder="12 Baker Street">
+    <label id="dlgProfileWrap" class="field" hidden><span>Room profile</span><select id="dlgProfile"></select></label>
+    <div class="row"><button type="button" value="cancel">Cancel</button><button type="submit" value="ok" class="ok">Create</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgLens">
+  <h2>Camera</h2>
+  <div id="lensList" class="list"></div>
+  <p style="height:10px"></p>
+  <div class="row"><button id="lensCancel">Close</button></div>
 </dialog>
 
 <dialog id="dlgDrive">

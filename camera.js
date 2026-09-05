@@ -3,10 +3,13 @@
 // ImageCapture.takePhoto() was tried first: it reconfigures the pipeline per shot (~0.7 s on Xiaomi 14 Ultra), too slow for burst.
 export class Camera {
   constructor(video) { this.video = video; this.stream = null; this.track = null; }
-  async start() {
+  // deviceId: a specific camera (from devices()); null = default rear camera.
+  async start(deviceId = null) {
     if (this.stream) return;
+    const hi = { width: { ideal: 4096 }, height: { ideal: 3072 } };
     const tries = [
-      { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } },
+      ...(deviceId ? [{ deviceId: { exact: deviceId }, ...hi }, { deviceId: { exact: deviceId } }] : []),
+      { facingMode: { ideal: 'environment' }, ...hi },
       { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       true,
     ];
@@ -25,6 +28,12 @@ export class Camera {
     this.stream = this.track = null;
     this.video.srcObject = null;
   }
+  // Video inputs. Labels are only available after camera permission was granted once.
+  async devices() {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    return all.filter(d => d.kind === 'videoinput');
+  }
+  currentId() { return this.track ? this.track.getSettings().deviceId : null; }
   info() {
     if (!this.track) return '';
     const s = this.track.getSettings();

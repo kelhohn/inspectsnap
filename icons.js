@@ -52,5 +52,6 @@ export const UI = {
   plus: ui('<path d="M12 5v14M5 12h14"/>'),
   close: ui('<path d="M6 6l12 12M18 6L6 18"/>'),
   check: ui('<path d="M5 12l4 4L19 7"/>'),
+  lens: ui('<circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2"/>'),
   drag: ui('<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/>'),
 };
