@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#bcc4b4">
+<meta name="mobile-web-app-capable" content="yes">
+<title>InspectSnap</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="screen active">
+  <header><div class="brand"><span id="brandMark"></span><h1>Inspections</h1></div><button id="settingsBtn" class="icon-btn" aria-label="Settings"></button></header>
+  <main>
+    <div id="inspList" class="list"></div>
+    <div id="inspEmpty" class="empty" hidden>No inspections yet.<br>Tap + to start one.</div>
+  </main>
+  <button id="newInsp" class="fab" aria-label="New inspection">+</button>
+</section>
+
+<!-- ROOMS -->
+<section id="rooms" class="screen">
+  <header>
+    <button class="icon-btn" data-nav="home" aria-label="Back"></button>
+    <h1 id="inspTitle"></h1>
+    <button id="delInsp" class="icon-btn danger" aria-label="Delete inspection"></button>
+  </header>
+  <main>
+    <p class="muted" id="inspMeta"></p>
+    <div id="roomGrid" class="rooms"></div>
+    <p style="height:12px"></p>
+    <button id="driveBtn" class="primary">Upload to Google Drive</button>
+    <p id="driveStatus" class="muted" style="margin:8px 0 14px;font-size:14px;text-align:center"></p>
+    <button id="exportBtn" class="primary secondary">Export / share manually</button>
+  </main>
+</section>
+
+<!-- CAMERA -->
+<section id="cam" class="screen">
+  <main>
+    <video id="video" playsinline muted autoplay></video>
+    <div id="flash"></div>
+    <div id="camHint" class="hint" hidden></div>
+    <div class="cam-top">
+      <button class="icon-btn" data-nav="rooms" aria-label="Back"></button>
+      <div class="chip" id="camRoom">Room</div>
+      <div class="chip n" id="camCount">0</div>
+    </div>
+    <div id="camInfo" class="caminfo"></div>
+    <div class="cam-bottom">
+      <div id="roomStrip" class="roomstrip"></div>
+      <div class="shutter-row">
+        <img id="thumb" alt="">
+        <button id="shutter" aria-label="Shutter"></button>
+        <div style="width:56px"></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+
+<!-- SETTINGS -->
+<section id="settings" class="screen">
+  <header>
+    <button class="icon-btn" data-nav="home" aria-label="Back"></button>
+    <h1>Settings</h1>
+  </header>
+  <main>
+    <h2 class="section">Room profiles</h2>
+    <p class="muted" style="margin-top:0">A profile is the list of rooms a new inspection starts with. Make one per type of job.</p>
+    <div id="profileList" class="list"></div>
+    <p style="height:14px"></p>
+    <button id="addProfile" class="primary secondary">+ New profile</button>
+  </main>
+</section>
+
+<!-- PROFILE EDIT -->
+<section id="profile" class="screen">
+  <header>
+    <button class="icon-btn" data-nav="settings" aria-label="Back"></button>
+    <h1 id="profileTitle">Profile</h1>
+    <button id="delProfile" class="icon-btn danger" aria-label="Delete profile"></button>
+  </header>
+  <main>
+    <label class="field"><span>Profile name</span><input id="profileName" type="text" autocomplete="off"></label>
+    <label class="toggle"><input id="profileDefault" type="checkbox"><span>Use for new inspections by default</span></label>
+    <h2 class="section">Rooms / areas</h2>
+    <div id="profileRooms" class="roomlist"></div>
+    <form id="addRoomForm" class="addrow">
+      <input id="newRoomName" type="text" placeholder="Add a room, e.g. Garage" autocomplete="off">
+      <button type="submit" class="icon-btn" aria-label="Add room"></button>
+    </form>
+  </main>
+</section>
+
+<dialog id="dlgName">
+  <h2 id="dlgTitle">New inspection</h2>
+  <input id="dlgInput" type="text" autocomplete="off" placeholder="12 Baker Street">
+  <label id="dlgProfileWrap" class="field" hidden><span>Room profile</span><select id="dlgProfile"></select></label>
+  <div class="row"><button value="cancel">Cancel</button><button value="ok" class="ok">Create</button></div>
+</dialog>
+
+<dialog id="dlgDrive">
+  <h2>Uploading to Google Drive</h2>
+  <p id="driveText" class="muted">Signing in...</p>
+  <progress id="driveBar" max="100" value="0"></progress>
+</dialog>
+
+<dialog id="dlgExport">
+  <h2>Export</h2>
+  <div id="expChoice">
+    <button id="expShare" class="primary">Share photos</button>
+    <p id="expShareNote" class="muted" style="margin:6px 0 14px;font-size:14px">Send JPEGs to Google Drive or any app. Room name is in each filename, e.g. Kitchen_003.jpg.</p>
+    <button id="expZip" class="primary secondary">Download ZIP with folders</button>
+    <p class="muted" style="margin:6px 0 14px;font-size:14px">One archive: Property / Room / photos. Saved to Downloads.</p>
+    <div class="row"><button id="expCancel">Cancel</button></div>
+  </div>
+  <div id="expBusy" hidden>
+    <p id="expText" class="muted">Packing photos into folders...</p>
+    <progress id="expBar" max="100" value="0"></progress>
+  </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
