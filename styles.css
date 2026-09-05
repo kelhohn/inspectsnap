@@ -101,3 +101,7 @@ h2.section { font:600 17px/1.2 var(--serif); margin:18px 0 6px; }
 .roomrow .mini:disabled { opacity:.25; }
 .addrow { display:flex; gap:10px; align-items:center; margin-top:14px; }
 .addrow input { flex:1; font:inherit; padding:13px 14px; border-radius:12px; border:1px solid var(--line); background:#fff; color:var(--fg); }
+
+.zoomrow { display:flex; justify-content:center; gap:6px; padding:0 12px 12px; }
+.zoomrow button { background:rgba(0,0,0,.45); color:#fff; border:1px solid rgba(255,255,255,.35); border-radius:999px; min-width:46px; padding:7px 10px; font-size:13px; font-weight:600; }
+.zoomrow button.on { background:var(--bg); color:var(--olive); border-color:var(--bg); }

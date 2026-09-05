@@ -34,6 +34,19 @@ export class Camera {
     return all.filter(d => d.kind === 'videoinput');
   }
   currentId() { return this.track ? this.track.getSettings().deviceId : null; }
+  // Optical/digital zoom range if the device exposes it (Android Chrome maps it to Camera2 zoom ratio;
+  // on many phones values < 1 switch to the ultra-wide module, > 2 to the telephoto).
+  zoomRange() {
+    if (!this.track || !this.track.getCapabilities) return null;
+    const z = this.track.getCapabilities().zoom;
+    return z && z.max > z.min ? z : null;
+  }
+  zoom() { return this.track ? (this.track.getSettings().zoom || 1) : 1; }
+  setZoom(v) {
+    const r = this.zoomRange(); if (!r) return Promise.resolve();
+    v = Math.min(r.max, Math.max(r.min, v));
+    return this.track.applyConstraints({ advanced: [{ zoom: v }] });
+  }
   info() {
     if (!this.track) return '';
     const s = this.track.getSettings();

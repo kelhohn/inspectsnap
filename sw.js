@@ -1,5 +1,5 @@
 // Network-first for the app shell (so updates land immediately), cache fallback for offline.
-const CACHE = 'inspectsnap-v8';
+const CACHE = 'inspectsnap-v9';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './db.js', './camera.js', './export.js', './encoder-worker.js', './drive.js', './config.js', './icons.js', './profiles.js', './manifest.webmanifest',
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
 self.addEventListener('install', e => {

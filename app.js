@@ -246,7 +246,28 @@ async function openCamera(room) {
     $('camInfo').textContent = cam.info();
     const devs = await cam.devices();
     $('lensBtn').hidden = devs.length < 2;
+    await setupZoom();
   } catch (e) { $('camHint').hidden = false; $('camHint').textContent = 'Camera unavailable: ' + e.message; }
+}
+// ---------- zoom presets ----------
+async function setupZoom() {
+  const row = $('zoomRow'); row.innerHTML = '';
+  const r = cam.zoomRange();
+  if (!r) { row.hidden = true; return; }
+  const presets = [];
+  if (r.min < 1) presets.push(+r.min.toFixed(1));
+  presets.push(1);
+  [2, 3, 5].forEach(v => { if (v <= r.max && v > 1) presets.push(v); });
+  if (presets.length < 2) { row.hidden = true; return; }
+  const saved = parseFloat(localStorage.getItem('zoom'));
+  if (saved && saved >= r.min && saved <= r.max) { try { await cam.setZoom(saved); } catch (_) {} }
+  const paint = () => { const z = cam.zoom(); row.querySelectorAll('button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.z - z) < 0.05)); };
+  presets.forEach(v => {
+    const b = document.createElement('button'); b.textContent = `${v}×`; b.dataset.z = v;
+    b.onclick = async () => { try { await cam.setZoom(v); localStorage.setItem('zoom', v); $('camInfo').textContent = cam.info(); } catch (e) { toast('Zoom failed: ' + e.message, 2000); } paint(); };
+    row.appendChild(b);
+  });
+  row.hidden = false; paint();
 }
 // ---------- lens picker ----------
 function lensLabel(d, i) {
@@ -266,7 +287,7 @@ $('lensBtn').onclick = async () => {
       $('dlgLens').close();
       if (d.deviceId === cur) return;
       stopBurst(); cam.stop();
-      try { await cam.start(d.deviceId); localStorage.setItem('lens', d.deviceId); $('camInfo').textContent = cam.info(); toast(lensLabel(d, i), 1200); }
+      try { await cam.start(d.deviceId); localStorage.setItem('lens', d.deviceId); $('camInfo').textContent = cam.info(); toast(lensLabel(d, i), 1200); await setupZoom(); }
       catch (e) { toast('Cannot open this camera: ' + e.message, 3000); localStorage.removeItem('lens'); await cam.start().catch(() => {}); }
     };
     box.appendChild(b);
