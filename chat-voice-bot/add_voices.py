@@ -184,13 +184,15 @@ def read_wav(path: Path, ffmpeg: str, sr: int = 24000) -> np.ndarray:
 _asr = None
 
 
-def transcribe(wav: Path) -> str:
+def transcribe(wav: Path, ffmpeg: str) -> str:
     global _asr
     if _asr is None:
         from f5_tts.infer.utils_infer import transcribe as f5_transcribe
 
         _asr = f5_transcribe
-    return _asr(str(wav), "ru")
+    # Отдаём Whisper уже декодированный звук: иначе transformers читает файл через torchcodec,
+    # который на Windows ломается (WinError 127).
+    return _asr({"raw": read_wav(wav, ffmpeg, 16000), "sampling_rate": 16000}, "ru")
 
 
 def build_voice(row: VoiceRow, clean: bool, ffmpeg: str) -> Path:
@@ -214,7 +216,7 @@ def build_voice(row: VoiceRow, clean: bool, ffmpeg: str) -> Path:
             if clean:
                 rough = separate_vocals(rough, tmp)
             cut(rough, ref, min(pad, row.start), row.duration, ffmpeg)
-    (d / "ref.txt").write_text(transcribe(ref) + "\n", encoding="utf-8")
+    (d / "ref.txt").write_text(transcribe(ref, ffmpeg) + "\n", encoding="utf-8")
     meta = d / "voice.toml"
     if not meta.exists():
         meta.write_text(f'name = "{row.name}"\n', encoding="utf-8")
@@ -245,7 +247,8 @@ def main() -> None:
     ffmpeg = ffmpeg_exe()
     ok, failed = [], []
     for row in rows:
-        if (VOICES / row.id / "ref.wav").exists() and not args.force:
+        done = all((VOICES / row.id / f).exists() for f in ("ref.wav", "ref.txt"))
+        if done and not args.force:
             print(f"· {row.name}: уже есть (пересоздать: --force {row.id})")
             continue
         where = "поиск речи автоматически" if row.start is None else f"с {row.start:.1f} с"

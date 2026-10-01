@@ -2,6 +2,7 @@
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
+set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 echo === Установка Chat Voice Bot ===
 
 rem --- 1. Python 3.11 ---
@@ -26,6 +27,8 @@ set "VPY=.venv\Scripts\python.exe"
 echo Ставлю PyTorch с CUDA (около 3 ГБ, это надолго)...
 "%VPY%" -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126 || goto :fail
 "%VPY%" -m pip install -r requirements-f5.txt -c constraints.txt || goto :fail
+rem torchcodec несовместим с PyTorch 2.8 и не нужен (WinError 127)
+"%VPY%" -m pip uninstall -y -q torchcodec
 "%VPY%" -c "import torch,sys; ok=torch.cuda.is_available(); print('Видеокарта:', torch.cuda.get_device_name(0) if ok else 'НЕ НАЙДЕНА - обновите драйвер NVIDIA'); sys.exit(0 if ok else 1)" || goto :fail
 
 rem --- 3. Настройки и модель ---
