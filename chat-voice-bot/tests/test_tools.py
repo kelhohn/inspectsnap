@@ -1,4 +1,5 @@
 import wave
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -31,7 +32,7 @@ def test_pick_checkpoint_uses_parent_vocab():
 
 
 def test_set_config_values_on_example():
-    text = open("config.example.toml", encoding="utf-8").read()
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(encoding="utf-8")
     out = set_config_values(text, {"f5_ckpt_file": "models/f5_russian/m.safetensors", "channel": "mychan"})
     assert 'f5_ckpt_file = "models/f5_russian/m.safetensors"' in out
     assert 'channel = "mychan"' in out
