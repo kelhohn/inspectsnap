@@ -36,11 +36,18 @@ echo Скачиваю русскую модель F5-TTS...
 if not exist voices.csv copy voices.example.csv voices.csv >nul
 
 echo.
+echo === Нарезаю голоса персонажей (Demucs + Whisper, первый раз докачивает модели) ===
+"%VPY%" add_voices.py || goto :fail
+echo.
+echo === Тест: озвучиваю мемные фразы всеми голосами ===
+"%VPY%" voice_test.py --engines f5 || goto :fail
+start "" out\f5
+
+echo.
 echo === Готово! ===
-echo 1. Откройте voices.csv и впишите ссылки на персонажей и время начала фразы.
-echo 2. Запустите add-voices.bat - он нарежет голоса.
-echo 3. Запустите test-voices.bat - послушайте результат в папке out.
-echo 4. start.bat - запуск бота. Оверлей для OBS: http://127.0.0.1:8790/overlay
+echo Открылась папка out\f5 - послушайте, как звучат персонажи.
+echo Добавить своих персонажей: впишите ссылки в voices.csv и запустите add-voices.bat
+echo Запуск бота: start.bat. Оверлей для OBS: http://127.0.0.1:8790/overlay
 pause
 exit /b 0
 
