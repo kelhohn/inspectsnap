@@ -76,6 +76,9 @@ class VoiceBot:
         if isinstance(event, Moderation):
             self.moderate(event)
             return
+        tags = "".join(t for t, on in (("[стример]", event.is_broadcaster), ("[мод]", event.is_moderator),
+                                       ("[VIP]", event.is_vip), ("[ФМ]", event.first_message)) if on)
+        log.info("Чат %s%s: %s", event.display_name, tags, event.text)
         cmd = parse_command(event, self.cfg.filters)
         if cmd is not None:
             reply = await self.run_command(cmd.name, cmd.arg)

@@ -111,7 +111,26 @@ async def main_async(args: argparse.Namespace) -> None:
     await asyncio.gather(bot.run(), feed())
 
 
+def disable_console_quick_edit() -> None:
+    """Windows: клик мышью по консоли включает выделение и ЗАМОРАЖИВАЕТ программу до Esc/Enter.
+    Бот в это время не читает чат. Отключаем режим быстрого выделения для этого окна."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        mode = ctypes.c_uint32()
+        if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            ENABLE_QUICK_EDIT_MODE, ENABLE_EXTENDED_FLAGS = 0x0040, 0x0080
+            kernel32.SetConsoleMode(handle, (mode.value & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS)
+    except (AttributeError, OSError):
+        pass
+
+
 def main() -> None:
+    disable_console_quick_edit()
     p = argparse.ArgumentParser(prog="voicebot", description="Озвучка ФМ и модераторов голосами персонажей")
     p.add_argument("command", nargs="?", default="run", choices=["run", "console", "devices"],
                    help="run — Twitch-чат; console — сообщения с клавиатуры; devices — список звуковых устройств")
