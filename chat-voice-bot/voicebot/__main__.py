@@ -57,6 +57,10 @@ async def main_async(args: argparse.Namespace) -> None:
     if args.engine:
         cfg.engine.name = args.engine
     voices = load_voices(cfg.path(cfg.voices.dir))
+    if not voices:
+        raise SystemExit("\nНет ни одного голоса персонажа в папке voices\\.\n"
+                         "Запустите add-voices.bat — он нарежет персонажей по ссылкам из voices.csv "
+                         "(5–15 минут в первый раз), — затем снова этот батник.")
     log.info("Голосов загружено: %d (%s)", len(voices), ", ".join(v.name for v in voices))
     picker = VoicePicker(voices, cfg.voices.avoid_repeat, cfg.voices.moderator_mode, cfg.voices.moderator_voices)
 
