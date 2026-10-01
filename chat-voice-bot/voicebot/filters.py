@@ -41,31 +41,49 @@ def contains_banned(text: str, banned: list[str]) -> bool:
     return any(w and w.lower().replace("ё", "е") in low for w in banned)
 
 
+def role(msg: ChatMessage) -> str:
+    """Старшая роль автора: broadcaster > moderator > vip > ""."""
+    if msg.is_broadcaster:
+        return "broadcaster"
+    if msg.is_moderator:
+        return "moderator"
+    if msg.is_vip:
+        return "vip"
+    return ""
+
+
+def can_use_tts(msg: ChatMessage, cfg: FilterConfig) -> bool:
+    return role(msg) in cfg.tts_roles
+
+
+def strip_tts_command(text: str, cfg: FilterConfig) -> str | None:
+    """«!tts привет» → «привет»; не команда — None."""
+    head, _, rest = text.strip().partition(" ")
+    if head.lower() in (cfg.tts_command.lower(), "!озвучка"):
+        return rest.strip()
+    return None
+
+
 def decide(msg: ChatMessage, cfg: FilterConfig) -> Decision:
     if msg.login in cfg.ignore_users:
         return Decision(False, "игнор-лист")
 
-    reason = ""
     text = msg.text.strip()
-    if msg.is_broadcaster:
-        if cfg.voice_broadcaster:
-            reason = "broadcaster"
-    elif msg.is_moderator and cfg.voice_moderators:
-        if cfg.moderator_prefix:
-            if text.startswith(cfg.moderator_prefix):
-                text = text[len(cfg.moderator_prefix):].strip()
-                reason = "moderator"
-        else:
-            reason = "moderator"
-    if not reason and msg.first_message and cfg.voice_first_messages:
+    spoken = strip_tts_command(text, cfg)
+    if spoken is not None:
+        # !tts текст — озвучка по команде: только VIP, модераторы и владелец канала.
+        if not can_use_tts(msg, cfg):
+            return Decision(False, f"{cfg.tts_command} только для VIP, модераторов и стримера")
+        if not spoken:
+            return Decision(False, "пустая команда")
+        reason, text = role(msg), spoken
+    elif msg.first_message and cfg.voice_first_messages:
+        if text.startswith("!"):
+            return Decision(False, "команда бота")
         reason = "first"
-    if not reason and msg.is_vip and cfg.voice_vips:
-        reason = "vip"
-    if not reason:
-        return Decision(False, "не ФМ и не модератор")
+    else:
+        return Decision(False, "не ФМ и не !tts")
 
-    if text.startswith("!"):
-        return Decision(False, "команда бота")
     if contains_banned(text, cfg.banned_words):
         return Decision(False, "запрещённое слово")
     text = clean_text(text, cfg.max_chars)
@@ -90,14 +108,21 @@ _ALIASES = {
 }
 
 
-def parse_command(msg: ChatMessage) -> Command | None:
-    """!tts <команда> — только для модераторов и стримера."""
-    if not (msg.is_moderator or msg.is_broadcaster):
+def parse_command(msg: ChatMessage, cfg: FilterConfig) -> Command | None:
+    """Управление: «!tts skip», «!tts громкость 60». Одно служебное слово после !tts —
+    команда; всё остальное («!tts стоп, это ограбление») — текст для озвучки."""
+    if not can_use_tts(msg, cfg):
         return None
-    parts = msg.text.strip().split()
-    if len(parts) < 2 or parts[0].lower() not in ("!tts", "!озвучка"):
+    rest = strip_tts_command(msg.text, cfg)
+    if not rest:
         return None
-    name = _ALIASES.get(parts[1].lower())
+    parts = rest.split()
+    name = _ALIASES.get(parts[0].lower())
     if name is None:
         return None
-    return Command(name, " ".join(parts[2:]))
+    if name == "volume":
+        if len(parts) > 2 or (len(parts) == 2 and not parts[1].rstrip("%").replace(".", "", 1).isdigit()):
+            return None
+    elif len(parts) > 1:
+        return None
+    return Command(name, " ".join(parts[1:]))

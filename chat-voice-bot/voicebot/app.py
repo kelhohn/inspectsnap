@@ -20,7 +20,7 @@ from .voices import Voice, VoicePicker
 
 log = logging.getLogger(__name__)
 
-PRIORITY = {"moderator": 0, "broadcaster": 0, "first": 1, "vip": 2}
+PRIORITY = {"moderator": 0, "broadcaster": 0, "vip": 0, "first": 1}
 REASON_LABEL = {"moderator": "модератор", "broadcaster": "стример", "first": "первое сообщение", "vip": "VIP"}
 
 
@@ -76,7 +76,7 @@ class VoiceBot:
         if isinstance(event, Moderation):
             self.moderate(event)
             return
-        cmd = parse_command(event)
+        cmd = parse_command(event, self.cfg.filters)
         if cmd is not None:
             reply = await self.run_command(cmd.name, cmd.arg)
             log.info("Команда %s от %s: %s", cmd.name, event.login, reply)
@@ -85,11 +85,11 @@ class VoiceBot:
             return
         decision = decide(event, self.cfg.filters)
         if not decision.speak:
-            if event.first_message or event.is_moderator:
+            if event.first_message or event.text.lstrip().lower().startswith(self.cfg.filters.tts_command.lower()):
                 log.info("Пропуск %s (%s): %s", event.login, decision.reason, event.text)
             return
         voice = (self.picker.for_moderator(event.login)
-                 if decision.reason in ("moderator", "broadcaster") else self.picker.random_voice())
+                 if decision.reason in ("moderator", "broadcaster", "vip") else self.picker.random_voice())
         self.enqueue(Item(id=str(next(self._ids)), login=event.login, display_name=event.display_name,
                           text=decision.text, voice=voice, reason=decision.reason, message_id=event.id))
 

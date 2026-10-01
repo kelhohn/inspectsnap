@@ -8,11 +8,11 @@ login = ""
 oauth_token = ""
 
 [filters]
-voice_first_messages = true       # озвучивать первое сообщение зрителя на канале (ФМ)
-voice_moderators = true           # озвучивать модераторов
-voice_broadcaster = false
-voice_vips = false
-moderator_prefix = ""             # например "~": тогда озвучиваются только сообщения модеров, начинающиеся с ~
+voice_first_messages = true       # автоматически озвучивать первое сообщение зрителя на канале (ФМ)
+# «!tts текст» — озвучить текст. Доступно только этим ролям (broadcaster — вы, владелец канала).
+# Им же доступны команды управления: !tts skip / стоп / старт / clear / громкость 60 / голоса
+tts_command = "!tts"
+tts_roles = ["broadcaster", "moderator", "vip"]
 max_chars = 200                   # длинные сообщения обрезаются
 min_chars = 2                     # сообщения из одних эмоутов/символов пропускаются
 banned_words = []                 # ["слово1", "слово2"] — такие сообщения не озвучиваются вообще

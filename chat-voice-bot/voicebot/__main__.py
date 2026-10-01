@@ -21,23 +21,24 @@ log = logging.getLogger("voicebot")
 
 def parse_console_line(line: str) -> ChatMessage | None:
     """Строки для режима console:
-        текст            → первое сообщение зрителя
-        mod ник: текст   → сообщение модератора
-        user ник: текст  → обычное сообщение (не озвучивается)
-        !tts skip        → команда модератора
+        текст              → первое сообщение нового зрителя (ФМ) — озвучивается
+        !tts текст         → вы (владелец канала) озвучиваете текст; !tts skip — команда
+        mod ник: !tts ...  → то же от модератора;   vip ник: !tts ... → от VIP
+        user ник: текст    → обычный зритель (не озвучивается, !tts ему недоступна)
     """
     line = line.strip()
     if not line:
         return None
     kind, login, text = "fm", "viewer", line
-    for prefix in ("mod ", "user "):
+    if line.lower().startswith(("!tts", "!озвучка")):
+        kind, login = "owner", "streamer"
+    for prefix in ("mod ", "vip ", "user "):
         if line.startswith(prefix) and ":" in line:
             login, text = line[len(prefix):].split(":", 1)
             kind, login, text = prefix.strip(), login.strip().lower(), text.strip()
-    is_mod = kind == "mod" or text.startswith("!tts")
     return ChatMessage(id="", login=login, display_name=login, text=text,
-                       first_message=kind == "fm" and not is_mod, is_moderator=is_mod,
-                       is_broadcaster=False, is_vip=False)
+                       first_message=kind == "fm", is_moderator=kind == "mod",
+                       is_broadcaster=kind == "owner", is_vip=kind == "vip")
 
 
 async def _stdin_lines():

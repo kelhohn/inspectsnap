@@ -17,12 +17,10 @@ class TwitchConfig:
 
 @dataclass
 class FilterConfig:
-    voice_first_messages: bool = True
-    voice_moderators: bool = True
-    voice_broadcaster: bool = False
-    voice_vips: bool = False
-    # Если задан (например "~"), модераторов озвучиваем только когда сообщение начинается с префикса.
-    moderator_prefix: str = ""
+    voice_first_messages: bool = True  # автоматически озвучивать первое сообщение зрителя (ФМ)
+    # «!tts текст» — озвучка по команде; кому можно: broadcaster, moderator, vip.
+    tts_command: str = "!tts"
+    tts_roles: list[str] = field(default_factory=lambda: ["broadcaster", "moderator", "vip"])
     max_chars: int = 200
     min_chars: int = 2
     banned_words: list[str] = field(default_factory=list)
@@ -94,6 +92,9 @@ class Config:
         return q if q.is_absolute() else self.base_dir / q
 
 
+# Параметры старых версий: модеров/VIP теперь озвучивает только !tts.
+_DEPRECATED = {"filters": {"voice_moderators", "voice_broadcaster", "voice_vips", "moderator_prefix"}}
+
 _SECTIONS = {
     "twitch": TwitchConfig,
     "filters": FilterConfig,
@@ -111,7 +112,7 @@ def load_config(path: str | Path) -> Config:
         raw = tomllib.load(f)
     cfg = Config(base_dir=path.resolve().parent)
     for name, cls in _SECTIONS.items():
-        section = raw.get(name, {})
+        section = {k: v for k, v in raw.get(name, {}).items() if k not in _DEPRECATED.get(name, ())}
         known = cls.__dataclass_fields__
         unknown = set(section) - set(known)
         if unknown:
@@ -120,4 +121,8 @@ def load_config(path: str | Path) -> Config:
     cfg.twitch.channel = cfg.twitch.channel.lstrip("#").lower()
     cfg.voices.moderator_voices = {k.lower(): v for k, v in cfg.voices.moderator_voices.items()}
     cfg.filters.ignore_users = [u.lower() for u in cfg.filters.ignore_users]
+    cfg.filters.tts_roles = [r.lower() for r in cfg.filters.tts_roles]
+    bad = set(cfg.filters.tts_roles) - {"broadcaster", "moderator", "vip"}
+    if bad:
+        raise ValueError(f"[filters] tts_roles: неизвестные роли {sorted(bad)} (можно broadcaster, moderator, vip)")
     return cfg

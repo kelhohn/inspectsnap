@@ -13,9 +13,9 @@ from voicebot.twitch_irc import ChatMessage, Moderation, parse_line, to_event
 from voicebot.voices import Voice, VoicePicker, load_voices
 
 
-def msg(text="привет всем", *, first=True, mod=False, login="viewer", broadcaster=False, mid="m1"):
+def msg(text="привет всем", *, first=True, mod=False, login="viewer", broadcaster=False, vip=False, mid="m1"):
     return ChatMessage(id=mid, login=login, display_name=login, text=text, first_message=first,
-                       is_moderator=mod, is_broadcaster=broadcaster, is_vip=False)
+                       is_moderator=mod, is_broadcaster=broadcaster, is_vip=vip)
 
 
 def voices(n=4):
@@ -62,12 +62,22 @@ def test_decide_first_and_regular():
     assert not decide(msg(first=False), cfg).speak
 
 
-def test_decide_moderator_prefix_and_commands():
-    cfg = FilterConfig(moderator_prefix="~")
+def test_decide_tts_only_for_vip_mod_broadcaster():
+    cfg = FilterConfig()
+    # обычные сообщения модеров/VIP больше не озвучиваются сами
     assert not decide(msg("обычное", first=False, mod=True), cfg).speak
-    d = decide(msg("~в эфир", first=False, mod=True), cfg)
-    assert d.speak and d.text == "в эфир" and d.reason == "moderator"
-    assert decide(msg("!discord"), FilterConfig()).reason == "команда бота"
+    assert not decide(msg("обычное", first=False, vip=True), cfg).speak
+    for kw, reason in ((dict(mod=True), "moderator"), (dict(vip=True), "vip"), (dict(broadcaster=True), "broadcaster")):
+        d = decide(msg("!tts в эфир", first=False, **kw), cfg)
+        assert (d.speak, d.text, d.reason) == (True, "в эфир", reason)
+    assert decide(msg("!TTS громко", first=False, mod=True), cfg).text == "громко"
+    # зрителю — нельзя, даже если это его первое сообщение
+    d = decide(msg("!tts хочу озвучку"), cfg)
+    assert not d.speak and "только для" in d.reason
+    assert not decide(msg("!tts", first=False, mod=True), cfg).speak
+    assert decide(msg("!discord"), cfg).reason == "команда бота"
+    # без VIP в tts_roles
+    assert not decide(msg("!tts привет", first=False, vip=True), FilterConfig(tts_roles=["moderator"])).speak
 
 
 def test_decide_rejects_junk_and_banned():
@@ -85,11 +95,18 @@ def test_clean_text():
     assert len(out) <= 51 and out.endswith("…")
 
 
-def test_parse_command_only_for_mods():
-    assert parse_command(msg("!tts skip")) is None
-    assert parse_command(msg("!tts skip", mod=True)).name == "skip"
-    c = parse_command(msg("!tts громкость 40", mod=True))
+def test_parse_command_roles_and_text_vs_command():
+    cfg = FilterConfig()
+    assert parse_command(msg("!tts skip"), cfg) is None  # зритель
+    assert parse_command(msg("!tts skip", mod=True), cfg).name == "skip"
+    assert parse_command(msg("!tts стоп", vip=True), cfg).name == "pause"
+    assert parse_command(msg("!tts старт", broadcaster=True), cfg).name == "resume"
+    c = parse_command(msg("!tts громкость 40", mod=True), cfg)
     assert (c.name, c.arg) == ("volume", "40")
+    # служебное слово, но дальше текст — это озвучка, а не команда
+    assert parse_command(msg("!tts стоп, это ограбление", mod=True), cfg) is None
+    assert parse_command(msg("!tts громкость у тебя бешеная", mod=True), cfg) is None
+    assert parse_command(msg("!tts привет", mod=True), cfg) is None
 
 
 # ---------- голоса ----------
@@ -157,7 +174,7 @@ def test_pipeline_speaks_first_and_mod_messages_mods_first():
         bot, overlay = make_bot(delay=0.05)
         await bot.handle_event(msg("ФМ зрителя", mid="a"))
         await bot.handle_event(msg("обычное", first=False, mid="b"))
-        await bot.handle_event(msg("слово модера", first=False, mod=True, login="mod", mid="c"))
+        await bot.handle_event(msg("!tts слово модера", first=False, mod=True, login="mod", mid="c"))
         await run_for(bot, 0.6)
         return spoken(overlay)
 
@@ -209,7 +226,7 @@ def test_full_queue_mod_evicts_viewer():
         await bot.handle_event(msg("раз", mid="1"))
         await bot.handle_event(msg("два", mid="2"))
         await bot.handle_event(msg("три", mid="3"))  # не влезло
-        await bot.handle_event(msg("модер", first=False, mod=True, login="m", mid="4"))
+        await bot.handle_event(msg("!tts модер", first=False, mod=True, login="m", mid="4"))
         return [i.text for i in bot.pending]
 
     # модератор вытесняет самое новое сообщение зрителя, порядок остальных сохраняется
@@ -219,3 +236,24 @@ def test_full_queue_mod_evicts_viewer():
 def test_dummy_engine_output():
     wav, sr = DummyEngine().synth("привет мир", voices(1)[0])
     assert sr == 24000 and wav.dtype == np.float32 and wav.size > 0
+
+
+def test_console_line_roles():
+    from voicebot.__main__ import parse_console_line
+
+    owner = parse_console_line("!tts привет")
+    assert owner.is_broadcaster and not owner.first_message
+    assert parse_console_line("vip petya: !tts hi").is_vip
+    assert parse_console_line("mod vasya: !tts hi").is_moderator
+    assert parse_console_line("просто текст").first_message
+    viewer = parse_console_line("user kolya: !tts hi")
+    assert not (viewer.is_vip or viewer.is_moderator or viewer.is_broadcaster or viewer.first_message)
+
+
+def test_old_config_keys_are_ignored(tmp_path):
+    from voicebot.config import load_config
+
+    p = tmp_path / "config.toml"
+    p.write_text('[filters]\nvoice_moderators = true\nmoderator_prefix = "~"\nvoice_vips = false\n', encoding="utf-8")
+    cfg = load_config(p)
+    assert cfg.filters.tts_roles == ["broadcaster", "moderator", "vip"]
