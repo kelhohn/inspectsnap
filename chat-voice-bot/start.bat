@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-start "" http://127.0.0.1:8790/
-.venv\Scripts\python.exe -m voicebot %*
+if not exist .venv\Scripts\python.exe (echo Сначала запустите setup.bat & pause & exit /b 1)
+echo Загружаю нейросеть, 20-60 секунд... Браузер откроется сам, когда бот будет готов.
+.venv\Scripts\python.exe -m voicebot --open panel %*
 pause
