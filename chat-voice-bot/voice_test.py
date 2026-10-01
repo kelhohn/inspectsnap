@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import voicebot.compat  # noqa: F401 — до torch: прячет сломанный torchcodec
 import argparse
 import gc
 import time

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from . import compat  # noqa: F401 — до torch: прячет сломанный torchcodec
+
 import argparse
 import asyncio
 import logging
