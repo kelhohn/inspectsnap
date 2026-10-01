@@ -1,0 +1,6 @@
+config.toml
+models/
+out/
+voices/*/
+__pycache__/
+.venv/

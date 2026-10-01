@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Bot</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --fg: #18181b; --muted: #71717a; --accent: #6d28d9; --line: #e4e4e7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111114; --card: #1c1c21; --fg: #f4f4f5; --muted: #a1a1aa; --accent: #a78bfa; --line: #2e2e35; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  button { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--fg); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text] { flex: 1; min-width: 200px; font: inherit; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  .item { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .tag { font-size: 12px; color: var(--accent); }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Озвучка чата</h1>
+  <div class="muted">Оверлей для OBS (источник «Браузер»): <code id="ovl"></code> · движок: <span id="engine">—</span></div>
+
+  <section>
+    <h2>Управление</h2>
+    <div class="row">
+      <button onclick="cmd('skip')">⏭ Пропустить</button>
+      <button id="pauseBtn" onclick="togglePause()">⏸ Пауза</button>
+      <button onclick="cmd('clear')">🗑 Очистить очередь</button>
+      <label class="row">🔊 <input id="vol" type="range" min="0" max="100" onchange="cmd('volume', this.value)"> <span id="volText"></span></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Проверка — как будто первое сообщение зрителя</h2>
+    <form class="row" onsubmit="event.preventDefault(); sendTest();">
+      <input id="say" type="text" placeholder="Привет, я тут впервые!" maxlength="300">
+      <button class="primary">Озвучить</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Сейчас звучит</h2>
+    <div id="current" class="muted">—</div>
+  </section>
+
+  <section>
+    <h2>Очередь</h2>
+    <div id="queue" class="muted">пусто</div>
+  </section>
+
+  <section>
+    <h2>Голоса</h2>
+    <div id="voices" class="muted"></div>
+  </section>
+</main>
+<script>
+document.getElementById('ovl').textContent = location.origin + '/overlay';
+let state = {};
+
+async function cmd(name, arg = '') {
+  const r = await fetch('/api/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ arg: String(arg) }) });
+  render((await r.json()).state);
+}
+function togglePause() { cmd(state.paused ? 'resume' : 'pause'); }
+function sendTest() { const el = document.getElementById('say'); if (el.value.trim()) { cmd('say', el.value); el.value = ''; } }
+
+function line(i) {
+  const d = document.createElement('div');
+  d.className = 'item';
+  const t = document.createElement('div');
+  t.className = 'tag';
+  t.textContent = `🎭 ${i.voice} · ${i.user} · ${i.reason}`;
+  const x = document.createElement('div');
+  x.textContent = i.text;
+  d.append(t, x);
+  return d;
+}
+
+function render(s) {
+  if (!s) return;
+  state = s;
+  document.getElementById('engine').textContent = s.engine;
+  document.getElementById('pauseBtn').textContent = s.paused ? '▶ Продолжить' : '⏸ Пауза';
+  document.getElementById('vol').value = s.volume;
+  document.getElementById('volText').textContent = s.volume + '%';
+  const cur = document.getElementById('current');
+  cur.replaceChildren(s.current ? line(s.current) : document.createTextNode(s.paused ? 'пауза' : '—'));
+  const q = document.getElementById('queue');
+  q.replaceChildren(...(s.queue.length ? s.queue.map(line) : [document.createTextNode('пусто')]));
+  document.getElementById('voices').textContent = s.voices.join(', ');
+}
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws?role=panel`);
+  ws.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    if (e.type === 'state') render(e);
+    else if (e.type === 'speak' || e.type === 'done') fetch('/api/state').then(r => r.json()).then(render);
+  };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+fetch('/api/state').then(r => r.json()).then(render);
+connect();
+</script>
+</body>
+</html>

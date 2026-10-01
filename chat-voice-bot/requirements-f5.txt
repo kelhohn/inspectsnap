@@ -1,0 +1,4 @@
+# F5-TTS + ударения. Сначала поставьте PyTorch с CUDA (см. README).
+-r requirements.txt
+f5-tts
+ruaccent

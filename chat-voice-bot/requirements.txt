@@ -1,0 +1,5 @@
+# Ядро бота (работает и без нейросетей: движок dummy)
+numpy
+scipy
+aiohttp
+sounddevice

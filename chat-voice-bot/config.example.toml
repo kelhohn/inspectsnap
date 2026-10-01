@@ -1,0 +1,59 @@
+# Скопируйте в config.toml и поправьте под себя.
+
+[twitch]
+channel = "your_channel"          # ваш канал (без #)
+# Без токена бот подключается анонимно — читать чат и озвучивать этого достаточно.
+# Токен нужен, только если хотите, чтобы бот отвечал модераторам в чат на команды !tts.
+login = ""
+oauth_token = ""
+
+[filters]
+voice_first_messages = true       # озвучивать первое сообщение зрителя на канале (ФМ)
+voice_moderators = true           # озвучивать модераторов
+voice_broadcaster = false
+voice_vips = false
+moderator_prefix = ""             # например "~": тогда озвучиваются только сообщения модеров, начинающиеся с ~
+max_chars = 200                   # длинные сообщения обрезаются
+min_chars = 2                     # сообщения из одних эмоутов/символов пропускаются
+banned_words = []                 # ["слово1", "слово2"] — такие сообщения не озвучиваются вообще
+ignore_users = ["nightbot", "streamelements", "moobot"]
+
+[queue]
+max_size = 15                     # больше — новые ФМ пропускаются (модераторы вытесняют ФМ)
+delay_seconds = 2.0               # пауза перед озвучкой: модер успеет удалить сообщение или забанить
+gap_seconds = 0.4                 # тишина между сообщениями
+
+[voices]
+dir = "voices"
+moderator_mode = "fixed"          # fixed — у каждого модера постоянный голос; random — каждый раз случайный
+avoid_repeat = 2                  # не повторять последние N голосов подряд
+
+[voices.moderator_voices]         # закрепить голос за модератором: ник = "папка голоса"
+# some_moderator = "arthas"
+
+[engine]
+name = "f5"                       # f5 | xtts | dummy (dummy — без нейросети, для проверки)
+device = "cuda"
+# F5-TTS: русская модель Misha24-10/F5-TTS_RUSSIAN (см. README, раздел «Модели»)
+f5_model = "F5TTS_v1_Base"
+f5_ckpt_file = "models/f5_russian/model.safetensors"
+f5_vocab_file = "models/f5_russian/vocab.txt"
+f5_nfe_step = 32                  # 16 — быстрее, 32 — качественнее
+f5_speed = 1.0
+f5_accent = true                  # ударения через RUAccent (русской F5 они нужны)
+# XTTS-v2 скачивается сам при первом запуске
+xtts_model = "tts_models/multilingual/multi-dataset/xtts_v2"
+xtts_language = "ru"
+
+[audio]
+# overlay — звук играет страница-оверлей в OBS (проще всего, ничего ставить не надо)
+# device  — звук на звуковое устройство, например "CABLE Input" (VB-CABLE); список: python -m voicebot devices
+output = "overlay"
+device = ""
+volume = 0.8
+sample_rate = 48000
+
+[overlay]
+enabled = true
+host = "127.0.0.1"
+port = 8790

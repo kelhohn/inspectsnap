@@ -1,0 +1,3 @@
+# XTTS-v2 (запасной движок). Сначала поставьте PyTorch с CUDA (см. README).
+-r requirements.txt
+coqui-tts

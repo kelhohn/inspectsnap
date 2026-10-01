@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Voice Overlay</title>
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden;
+    font-family: "Segoe UI", system-ui, sans-serif; }
+  #card { position: fixed; left: 24px; bottom: 24px; max-width: min(720px, calc(100vw - 48px));
+    padding: 14px 20px; border-radius: 14px; background: rgba(12, 12, 20, .82); color: #fff;
+    box-shadow: 0 6px 24px rgba(0,0,0,.35); opacity: 0; transform: translateY(12px);
+    transition: opacity .25s, transform .25s; }
+  #card.show { opacity: 1; transform: none; }
+  #who { font-size: 15px; color: #c7b8ff; margin-bottom: 4px; }
+  #who b { color: #fff; }
+  #text { font-size: 24px; line-height: 1.3; word-wrap: break-word; }
+  #unlock { position: fixed; top: 12px; left: 12px; padding: 8px 12px; border-radius: 8px;
+    background: #b91c1c; color: #fff; font-size: 14px; display: none; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="unlock">Браузер заблокировал звук — кликните здесь (в OBS этого не будет)</div>
+<div id="card"><div id="who"></div><div id="text"></div></div>
+<script>
+const card = document.getElementById('card');
+const who = document.getElementById('who');
+const textEl = document.getElementById('text');
+const unlock = document.getElementById('unlock');
+let audio = null, hideTimer = null;
+
+unlock.onclick = () => { unlock.style.display = 'none'; };
+
+function show(e) {
+  clearTimeout(hideTimer);
+  who.innerHTML = '';
+  const b = document.createElement('b');
+  b.textContent = '🎭 ' + e.voice;
+  who.append(b, document.createTextNode(' · ' + e.user + ' (' + e.reason + ')'));
+  textEl.textContent = e.text;
+  card.classList.add('show');
+}
+function hide() { hideTimer = setTimeout(() => card.classList.remove('show'), 600); }
+function stopAudio() { if (audio) { audio.pause(); audio = null; } }
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws?role=overlay`);
+  ws.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    if (e.type === 'speak') show(e);
+    else if (e.type === 'done') hide();
+    else if (e.type === 'audio') {
+      stopAudio();
+      audio = new Audio(e.url);
+      audio.volume = e.volume;
+      audio.play().catch(() => { unlock.style.display = 'block'; });
+    } else if (e.type === 'stop') { stopAudio(); hide(); }
+  };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+connect();
+</script>
+</body>
+</html>
