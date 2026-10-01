@@ -14,6 +14,7 @@ import numpy as np
 from .audio import DevicePlayer, prepare
 from .config import Config
 from .engines import Engine
+from .catchphrases import Catchphrases, choose
 from .filters import decide, parse_command
 from .twitch_irc import ChatMessage, Moderation
 from .voices import Voice, VoicePicker
@@ -47,8 +48,10 @@ class Item:
 
 
 class VoiceBot:
-    def __init__(self, cfg: Config, engine: Engine, picker: VoicePicker, overlay=None, chat=None):
+    def __init__(self, cfg: Config, engine: Engine, picker: VoicePicker, overlay=None, chat=None,
+                 catchphrases: Catchphrases | None = None):
         self.cfg = cfg
+        self.catchphrases = catchphrases or Catchphrases()
         self.engine = engine
         self.picker = picker
         self.overlay = overlay
@@ -92,10 +95,15 @@ class VoiceBot:
             if event.first_message or event.text.lstrip().lower().startswith(self.cfg.filters.tts_command.lower()):
                 log.info("Пропуск %s (%s): %s", event.login, decision.reason, event.text)
             return
-        voice = (self.picker.for_role(event.login, decision.reason)
-                 if decision.reason in ("moderator", "broadcaster", "vip") else self.picker.random_voice())
+        text = decision.text
+        if decision.reason in ("moderator", "broadcaster", "vip"):
+            # «!tts брайер», «!tts брайер: текст», «!tts фраза» — выбор персонажа/реплики.
+            chosen, text = choose(text, self.catchphrases)
+            voice = self.picker.by_id[chosen] if chosen else self.picker.for_role(event.login, decision.reason)
+        else:
+            voice = self.picker.random_voice()
         self.enqueue(Item(id=str(next(self._ids)), login=event.login, display_name=event.display_name,
-                          text=decision.text, voice=voice, reason=decision.reason, message_id=event.id))
+                          text=text, voice=voice, reason=decision.reason, message_id=event.id))
 
     def enqueue(self, item: Item) -> bool:
         if len(self.pending) >= self.cfg.queue.max_size:

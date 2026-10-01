@@ -10,6 +10,7 @@ import logging
 import sys
 
 from .app import VoiceBot
+from .catchphrases import load_catchphrases
 from .config import load_config
 from .engines import create_engine
 from .overlay import OverlayServer
@@ -89,7 +90,10 @@ async def main_async(args: argparse.Namespace) -> None:
         overlay = OverlayServer(cfg.overlay.host, cfg.overlay.port, cfg.audio.sample_rate,
                                 on_command=lambda c, a: bot.run_command(c, a),  # type: ignore[union-attr]
                                 get_state=lambda: bot.state())  # type: ignore[union-attr]
-    bot = VoiceBot(cfg, engine, picker, overlay=overlay, chat=chat)
+    catchphrases = load_catchphrases(cfg.base_dir / "catchphrases.toml", voices)
+    if catchphrases.phrases:
+        log.info("Реплики: %s", ", ".join(f"{picker.by_id[v].name} ({len(p)})" for v, p in catchphrases.phrases.items()))
+    bot = VoiceBot(cfg, engine, picker, overlay=overlay, chat=chat, catchphrases=catchphrases)
     if overlay:
         await overlay.start()
         if args.open:

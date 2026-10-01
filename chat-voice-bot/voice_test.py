@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from voicebot.audio import normalize, to_wav_bytes
+from voicebot.catchphrases import load_catchphrases
 from voicebot.config import Config, load_config
 from voicebot.engines import create_engine
 from voicebot.voices import load_voices
@@ -46,7 +47,11 @@ def main() -> None:
         voices = [v for v in voices if v.id in args.voices]
     if not voices:
         raise SystemExit("Нет голосов: положите ref.wav (+ ref.txt) в voices/<имя>/ — см. voices/README.md")
-    phrases = args.phrases or PHRASES
+    own = load_catchphrases(cfg.path("catchphrases.toml"), voices).phrases
+
+    def phrases_for(voice_id: str) -> list[str]:
+        # Свои фразы из --phrases; иначе — реплики персонажа из catchphrases.toml + общие мемные.
+        return args.phrases or own.get(voice_id, [])[:4] + PHRASES[: 5 - min(3, len(own.get(voice_id, [])))]
 
     summary = []
     for name in args.engines:
@@ -58,7 +63,7 @@ def main() -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
         times = []
         for voice in voices:
-            for n, text in enumerate(phrases, 1):
+            for n, text in enumerate(phrases_for(voice.id), 1):
                 t0 = time.perf_counter()
                 wav, sr = engine.synth(text, voice)
                 dt = time.perf_counter() - t0

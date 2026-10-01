@@ -333,3 +333,35 @@ def test_role_voices_owner_and_mods_and_reserved_from_viewers():
     # ник из moderator_voices важнее роли
     p2 = VoicePicker(vs, moderator_voices={"special": "vaas"}, role_voices={"moderator": "arthas"})
     assert p2.for_role("special", "moderator").id == "vaas"
+
+
+def test_catchphrases_choose(tmp_path):
+    from voicebot.catchphrases import choose, load_catchphrases
+
+    (tmp_path / "c.toml").write_text('[briar]\naliases = ["брайер"]\nphrases = ["КРОООВЬ!", "Вся эта кровь мне!"]\n'
+                                     '[ghost]\nphrases = ["нет такого голоса"]\n', encoding="utf-8")
+    vs = [Voice(id="briar", name="Брайер", ref_wav=Path("b.wav"), ref_text=""),
+          Voice(id="johnny", name="Джонни Сильверхенд", ref_wav=Path("j.wav"), ref_text="")]
+    cp = load_catchphrases(tmp_path / "c.toml", vs)
+    assert "ghost" not in cp.phrases
+    rng = random.Random(1)
+    vid, text = choose("Брайер", cp, rng)
+    assert vid == "briar" and text in ("КРОООВЬ!", "Вся эта кровь мне!")
+    assert choose("брайер: привет чат", cp) == ("briar", "привет чат")
+    assert choose("джонни: проснись", cp) == ("johnny", "проснись")  # первое слово подписи
+    assert choose("johnny", cp) == (None, "johnny")  # реплик нет — просто слово
+    assert choose("фраза", cp, rng)[0] == "briar"
+    assert choose("просто текст: с двоеточием", cp) == (None, "просто текст: с двоеточием")
+
+
+def test_tts_with_character_name_uses_that_voice():
+    async def go():
+        bot, overlay = make_bot()
+        from voicebot.catchphrases import Catchphrases
+
+        bot.catchphrases = Catchphrases(aliases={"voice1": "v1"}, phrases={"v1": ["КРОООВЬ!"]})
+        await bot.handle_event(msg("!tts voice1", first=False, mod=True, login="m", mid="1"))
+        await bot.handle_event(msg("!tts voice1: свой текст", first=False, mod=True, login="m", mid="2"))
+        return [(i.voice.id, i.text) for i in bot.pending]
+
+    assert asyncio.run(go()) == [("v1", "КРОООВЬ!"), ("v1", "свой текст")]
