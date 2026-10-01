@@ -64,8 +64,8 @@ class EngineConfig:
 
 @dataclass
 class AudioConfig:
-    # "device" — звуковое устройство (VB-CABLE/колонки); "overlay" — звук играет страница-оверлей в OBS.
-    output: str = "overlay"
+    # "device" — колонки/звуковое устройство; "overlay" — звук играет только страница-оверлей в OBS.
+    output: str = "device"
     device: str = ""  # имя или номер устройства для output = "device"
     volume: float = 0.8
     sample_rate: int = 48000

@@ -58,6 +58,11 @@ async def main_async(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     if args.engine:
         cfg.engine.name = args.engine
+    if args.audio:
+        cfg.audio.output = args.audio
+    log.info("Звук: %s", "в колонки (устройство по умолчанию)" if cfg.audio.output == "device" and not cfg.audio.device
+             else f"устройство {cfg.audio.device}" if cfg.audio.output == "device"
+             else "только в странице-оверлее (OBS «Браузер» / вкладка браузера)")
     voices = load_voices(cfg.path(cfg.voices.dir))
     if not voices:
         raise SystemExit("\nНет ни одного голоса персонажа в папке voices\\.\n"
@@ -111,6 +116,7 @@ def main() -> None:
                    help="run — Twitch-чат; console — сообщения с клавиатуры; devices — список звуковых устройств")
     p.add_argument("--config", default="config.toml")
     p.add_argument("--engine", choices=["f5", "xtts", "dummy"], help="переопределить движок из конфига")
+    p.add_argument("--audio", choices=["device", "overlay"], help="куда звук: колонки или страница-оверлей")
     p.add_argument("--open", choices=["panel", "overlay"], help="открыть страницу в браузере, когда бот готов")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()

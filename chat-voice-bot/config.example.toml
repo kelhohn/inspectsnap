@@ -46,9 +46,12 @@ xtts_model = "tts_models/multilingual/multi-dataset/xtts_v2"
 xtts_language = "ru"
 
 [audio]
-# overlay — звук играет страница-оверлей в OBS (проще всего, ничего ставить не надо)
-# device  — звук на звуковое устройство, например "CABLE Input" (VB-CABLE); список: python -m voicebot devices
-output = "overlay"
+# device  — звук в колонки/наушники (как у обычной программы): вы его слышите, OBS пишет через «Звук рабочего стола».
+#           device = "" — устройство Windows по умолчанию; другое (например "CABLE Input"): python -m voicebot devices
+# overlay — звук играет только страница-оверлей (источник «Браузер» в OBS) — отдельная дорожка в микшере OBS,
+#           но сами вы его не слышите, пока не включите в OBS «Мониторинг звука» для этого источника.
+# Субтитры в оверлее показываются в обоих режимах.
+output = "device"
 device = ""
 volume = 0.8
 sample_rate = 48000

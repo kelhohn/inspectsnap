@@ -133,6 +133,7 @@ class FakeOverlay:
 
 def make_bot(**queue):
     cfg = Config()
+    cfg.audio.output = "overlay"
     cfg.queue.delay_seconds = queue.get("delay", 0.0)
     cfg.queue.gap_seconds = 0.0
     cfg.queue.max_size = queue.get("max_size", 15)
