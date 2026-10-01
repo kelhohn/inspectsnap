@@ -136,6 +136,7 @@ class FakeOverlay:
     def __init__(self):
         self.played, self.events = [], []
         self.duration = 0.05
+        self.overlay_clients = 1
 
     async def broadcast(self, event):
         self.events.append(event)
@@ -257,3 +258,52 @@ def test_old_config_keys_are_ignored(tmp_path):
     p.write_text('[filters]\nvoice_moderators = true\nmoderator_prefix = "~"\nvoice_vips = false\n', encoding="utf-8")
     cfg = load_config(p)
     assert cfg.filters.tts_roles == ["broadcaster", "moderator", "vip"]
+
+
+def test_overlay_mode_without_open_overlay_falls_back_to_speakers():
+    async def go():
+        bot, overlay = make_bot()
+        overlay.overlay_clients = 0
+        played = []
+
+        class Speakers:
+            async def play(self, wav, volume, stop):
+                played.append(wav.size)
+
+        bot._speakers = Speakers()
+        await bot.handle_event(msg("в колонки", mid="1"))
+        await run_for(bot, 0.5)
+        return played, overlay.played
+
+    played, overlay_played = asyncio.run(go())
+    assert len(played) == 1 and overlay_played == []
+
+
+def test_accentuator_survives_broken_word_model():
+    from voicebot.engines import Accentuator, harden_accent_model
+
+    class FakeModel:
+        def put_accent(self, word):
+            if word == "мужичара":
+                raise RuntimeError("onnx упал")
+            return word.replace("о", "+о", 1)
+
+    class FakeRUAccent:
+        def __init__(self):
+            self.accent_model = FakeModel()
+
+        def process_all(self, text):
+            return " ".join(self.accent_model.put_accent(w) for w in text.split())
+
+    ru = FakeRUAccent()
+    harden_accent_model(ru)
+    acc = Accentuator.__new__(Accentuator)
+    acc._acc = ru
+    assert acc("вова мужичара") == "в+ова мужичара"  # сломанное слово — без ударения, фраза цела
+
+    class Broken:
+        def process_all(self, text):
+            raise ValueError("совсем сломалось")
+
+    acc._acc = Broken()
+    assert acc("привет") == "привет"

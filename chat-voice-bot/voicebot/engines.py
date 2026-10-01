@@ -40,6 +40,24 @@ class DummyEngine(Engine):
         return np.concatenate(notes).astype(np.float32), sr
 
 
+def harden_accent_model(acc) -> None:
+    """Слова не из словаря («мужичара», опечатки) RUAccent отдаёт своей нейросети, и она может упасть.
+    Тогда оставляем слово без ударения, а не теряем всю фразу."""
+    model = getattr(acc, "accent_model", None)
+    if model is None or not hasattr(model, "put_accent"):
+        return
+    original = model.put_accent
+
+    def safe_put_accent(word: str) -> str:
+        try:
+            return original(word)
+        except Exception:  # noqa: BLE001
+            log.debug("RUAccent не справился со словом %r", word)
+            return word
+
+    model.put_accent = safe_put_accent
+
+
 class Accentuator:
     """Ударения для русского через RUAccent: «прив+ет». Без библиотеки — текст как есть."""
 
@@ -53,9 +71,16 @@ class Accentuator:
         self._acc = RUAccent()
         self._acc.load(omograph_model_size="turbo2", use_dictionary=True,
                        device="CUDA" if device.startswith("cuda") else "CPU")
+        harden_accent_model(self._acc)
 
     def __call__(self, text: str) -> str:
-        return self._acc.process_all(text) if self._acc else text
+        if not self._acc:
+            return text
+        try:
+            return self._acc.process_all(text)
+        except Exception as e:  # noqa: BLE001 — без ударений лучше, чем без озвучки
+            log.warning("Ударения не расставлены (%s) — озвучиваю как есть", e)
+            return text
 
 
 class F5Engine(Engine):

@@ -57,6 +57,7 @@ class VoiceBot:
         if cfg.audio.output == "overlay" and overlay is None:
             raise ValueError("audio.output = \"overlay\" требует [overlay] enabled = true")
         self.volume = cfg.audio.volume
+        self._speakers: DevicePlayer | bool | None = None  # запасной вывод в колонки для overlay-режима
         self.paused = False
         self.pending: list[Item] = []
         self.ready: asyncio.Queue[Item] = asyncio.Queue(maxsize=1)
@@ -227,8 +228,9 @@ class VoiceBot:
             self._stop_current.clear()
             await self._broadcast({"type": "speak", **item.public()})
             try:
-                if self.player is not None:
-                    await self.player.play(item.audio, self.volume, self._stop_current)
+                player = self.player or self._fallback_player()
+                if player is not None:
+                    await player.play(item.audio, self.volume, self._stop_current)
                 elif self.overlay is not None:
                     await self.overlay.play(item.id, item.audio, self.volume, self._stop_current)
             except Exception:  # noqa: BLE001
@@ -237,6 +239,21 @@ class VoiceBot:
             await self._broadcast({"type": "done", "id": item.id})
             await self._push_state()
             await asyncio.sleep(self.cfg.queue.gap_seconds)
+
+    def _fallback_player(self) -> DevicePlayer | None:
+        """output = "overlay", но оверлей нигде не открыт — играем в колонки, чтобы звук не пропал."""
+        if self.overlay is None or getattr(self.overlay, "overlay_clients", 1) > 0:
+            return None
+        if self._speakers is None:
+            try:
+                self._speakers = DevicePlayer(None, self.cfg.audio.sample_rate)
+            except Exception:  # noqa: BLE001 — нет звуковой библиотеки/устройства
+                self._speakers = False
+                log.exception("Не удалось открыть колонки")
+            else:
+                log.warning("Оверлей не открыт ни в OBS, ни в браузере — играю в колонки. "
+                            "Чтобы всегда так, поставьте в config.toml: output = \"device\"")
+        return self._speakers or None
 
     # ---------- состояние для панели ----------
 

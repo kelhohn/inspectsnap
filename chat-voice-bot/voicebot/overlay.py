@@ -96,8 +96,6 @@ class OverlayServer:
 
     async def play(self, clip_id: str, wav: np.ndarray, volume: float, stop: asyncio.Event) -> None:
         """Звук играет страница оверлея в OBS; здесь ждём конца клипа или команды skip."""
-        if self.overlay_clients == 0:
-            log.warning("Оверлей не открыт ни в OBS, ни в браузере — звук никто не услышит")
         url = self.add_clip(clip_id, wav)
         await self.broadcast({"type": "audio", "id": clip_id, "url": url, "volume": volume})
         try:
