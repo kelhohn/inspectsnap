@@ -70,7 +70,9 @@ async def main_async(args: argparse.Namespace) -> None:
                          "Запустите add-voices.bat — он нарежет персонажей по ссылкам из voices.csv "
                          "(5–15 минут в первый раз), — затем снова этот батник.")
     log.info("Голосов загружено: %d (%s)", len(voices), ", ".join(v.name for v in voices))
-    picker = VoicePicker(voices, cfg.voices.avoid_repeat, cfg.voices.moderator_mode, cfg.voices.moderator_voices)
+    picker = VoicePicker(voices, cfg.voices.avoid_repeat, cfg.voices.moderator_mode, cfg.voices.moderator_voices,
+                         role_voices={"broadcaster": cfg.voices.broadcaster_voice,
+                                      "moderator": cfg.voices.moderator_voice, "vip": cfg.voices.vip_voice})
 
     log.info("Загрузка движка %s…", cfg.engine.name)
     engine = create_engine(cfg.engine)

@@ -4,6 +4,10 @@
     python add_voices.py --force arthas
     python add_voices.py --no-clean   # не вычищать музыку (быстрее, если фон чистый)
 
+Колонка variants — сколько разных образцов сделать (ref.wav, ref2.wav, …): бот на каждое сообщение
+берёт случайный, поэтому персонаж звучит то спокойно, то с криком. В start можно перечислить
+несколько моментов через | (например 0:12|1:05) — тогда из каждого получится свой образец.
+
 Если в voices.csv не указано время начала (start), скрипт сам находит в первых минутах ролика
 куски речи и склеивает из них образец нужной длины — подходит для подборок «все фразы персонажа».
 
@@ -38,8 +42,20 @@ class VoiceRow:
     id: str
     name: str
     source: str
-    start: float | None  # None — найти речь автоматически
+    starts: list[float]  # пусто — найти речь автоматически
     duration: float
+    variants: int = 1
+
+    @property
+    def start(self) -> float | None:
+        return self.starts[0] if self.starts else None
+
+    @property
+    def count(self) -> int:
+        return len(self.starts) if self.starts else self.variants
+
+
+CSV_FIELDS = ["id", "name", "source", "start", "duration", "variants"]
 
 
 def parse_time(s: str) -> float:
@@ -61,10 +77,45 @@ def read_rows(path: Path) -> list[VoiceRow]:
             r = {k.strip(): (v or "").strip() for k, v in r.items() if k}
             if not r.get("id") or not r.get("source"):
                 continue
-            rows.append(VoiceRow(id=r["id"], name=r.get("name") or r["id"], source=r["source"],
-                                 start=parse_time(r["start"]) if r.get("start") else None,
-                                 duration=parse_time(r.get("duration", "")) or 10.0))
+            starts = [parse_time(t) for t in r.get("start", "").split("|") if t.strip()]
+            variants = r.get("variants", "")
+            rows.append(VoiceRow(id=r["id"], name=r.get("name") or r["id"], source=r["source"], starts=starts,
+                                 duration=parse_time(r.get("duration", "")) or 10.0,
+                                 variants=max(1, min(5, int(variants))) if variants.isdigit() else 1))
     return rows
+
+
+def _raw_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        text = f.read()
+    comments = [line for line in text.splitlines() if line.lstrip().startswith("#")]
+    body = [line for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    rows = [{k.strip(): (v or "").strip() for k, v in r.items() if k} for r in csv.DictReader(body, delimiter=";")]
+    return comments, rows
+
+
+def merge_example(csv_path: Path, example: Path) -> list[str]:
+    """Дописывает в voices.csv персонажей из voices.example.csv, которых там ещё нет. Возвращает их id."""
+    _, mine = _raw_rows(csv_path)
+    comments, theirs = _raw_rows(example)
+    have = {r.get("id") for r in mine}
+    added = [r for r in theirs if r.get("id") and r["id"] not in have]
+    # Пустые строки-заготовки старого примера заменяем заполненными из нового.
+    by_id = {r["id"]: r for r in theirs if r.get("id")}
+    upgraded = []
+    for r in mine:
+        new = by_id.get(r.get("id", ""))
+        if new and not r.get("source") and new.get("source"):
+            r.update(new)
+            upgraded.append(r["id"])
+    if not added and not upgraded:
+        return []
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        f.write("\n".join(comments) + "\n")
+        w = csv.DictWriter(f, fieldnames=CSV_FIELDS, delimiter=";", extrasaction="ignore", lineterminator="\n")
+        w.writeheader()
+        w.writerows(mine + added)
+    return [r["id"] for r in added] + upgraded
 
 
 def ffmpeg_exe() -> str:
@@ -148,32 +199,52 @@ def speech_segments(wav: np.ndarray, sr: int, frame: float = 0.02, min_gap: floa
     return segs
 
 
-def auto_reference(wav: np.ndarray, sr: int, duration: float, skip_head: float = AUTO_SKIP_HEAD,
-                   max_len: float = 12.0, pause: float = 0.3) -> np.ndarray:
-    """Склеивает подряд идущие фразы в образец ~duration секунд (паузы ужимаются до pause)."""
+def auto_references(wav: np.ndarray, sr: int, duration: float, count: int = 1,
+                    skip_head: float = AUTO_SKIP_HEAD, max_len: float = 12.0, pause: float = 0.3) -> list[np.ndarray]:
+    """До count образцов ~duration секунд из РАЗНЫХ мест ролика: подряд идущие фразы склеиваются,
+    паузы ужимаются до pause. Каждая фраза используется только в одном образце."""
     segs = [s for s in speech_segments(wav, sr) if s[0] >= skip_head * sr] or speech_segments(wav, sr)
     if not segs:
         raise RuntimeError("в ролике не найдено речи")
     lengths = [(b - a) / sr for a, b in segs]
-    best, best_score = (0, 1), -1.0
-    for i in range(len(segs)):
-        total, j = 0.0, i
-        while j < len(segs) and total + lengths[j] + (pause if j > i else 0) <= max_len:
-            total += lengths[j] + (pause if j > i else 0)
-            j += 1
-        if j == i:  # одна фраза длиннее max_len — берём её начало
-            total, j = max_len, i + 1
-        score = min(total, duration) - 0.1 * (j - i)  # ближе к нужной длине, меньше склеек
-        if score > best_score + 1e-9:
-            best, best_score = (i, j), score
+    used = [False] * len(segs)
     silence = np.zeros(int(pause * sr), dtype=np.float32)
-    parts = []
-    for k in range(*best):
-        if parts:
-            parts.append(silence)
-        a, b = segs[k]
-        parts.append(wav[a:b].astype(np.float32))
-    return np.concatenate(parts)[: int(max_len * sr)]
+    out = []
+    for _ in range(count):
+        best, best_score = None, -1.0
+        for i in range(len(segs)):
+            if used[i]:
+                continue
+            total, j = 0.0, i
+            while j < len(segs) and not used[j] and total + lengths[j] + (pause if j > i else 0) <= max_len:
+                total += lengths[j] + (pause if j > i else 0)
+                j += 1
+            if j == i:  # одна фраза длиннее max_len — берём её начало
+                total, j = max_len, i + 1
+            score = min(total, duration) - 0.1 * (j - i)  # ближе к нужной длине, меньше склеек
+            if score > best_score + 1e-9:
+                best, best_score = (i, j), score
+        if best is None or (out and best_score < min(3.0, duration / 2)):
+            break  # речи больше нет или остались огрызки
+        parts = []
+        for k in range(*best):
+            used[k] = True
+            if parts:
+                parts.append(silence)
+            a, b = segs[k]
+            parts.append(wav[a:b].astype(np.float32))
+        out.append(np.concatenate(parts)[: int(max_len * sr)])
+    return out
+
+
+def auto_reference(wav: np.ndarray, sr: int, duration: float, skip_head: float = AUTO_SKIP_HEAD,
+                   max_len: float = 12.0, pause: float = 0.3) -> np.ndarray:
+    return auto_references(wav, sr, duration, 1, skip_head, max_len, pause)[0]
+
+
+def ref_name(index: int) -> str:
+    """0 → ref, 1 → ref2, 2 → ref3, …"""
+    return "ref" if index == 0 else f"ref{index + 1}"
 
 
 def read_wav(path: Path, ffmpeg: str, sr: int = 24000) -> np.ndarray:
@@ -197,27 +268,42 @@ def transcribe(wav: Path, ffmpeg: str) -> str:
 
 
 def build_voice(row: VoiceRow, clean: bool, ffmpeg: str) -> Path:
+    d = VOICES / row.id
+    d.mkdir(parents=True, exist_ok=True)
+    refs: list[Path] = []
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
         src = fetch(row.source, tmp)
-        d = VOICES / row.id
-        d.mkdir(parents=True, exist_ok=True)
-        ref = d / "ref.wav"
-        rough = tmp / "rough.wav"
-        if row.start is None:
+        if not row.starts:
+            rough = tmp / "rough.wav"
             cut(src, rough, 0.0, AUTO_SCAN_SECONDS, ffmpeg, sr=44100)
             if clean:
                 rough = separate_vocals(rough, tmp)
             sr = 24000
-            ref.write_bytes(to_wav_bytes(normalize(auto_reference(read_wav(rough, ffmpeg, sr), sr, row.duration)), sr))
+            for k, wav in enumerate(auto_references(read_wav(rough, ffmpeg, sr), sr, row.duration, row.variants)):
+                ref = d / f"{ref_name(k)}.wav"
+                ref.write_bytes(to_wav_bytes(normalize(wav), sr))
+                refs.append(ref)
         else:
-            # Режем с запасом в 2 с по краям: Demucs точнее на более длинном куске.
-            pad = 2.0 if clean else 0.0
-            cut(src, rough, max(0.0, row.start - pad), row.duration + 2 * pad, ffmpeg, sr=44100)
-            if clean:
-                rough = separate_vocals(rough, tmp)
-            cut(rough, ref, min(pad, row.start), row.duration, ffmpeg)
-    (d / "ref.txt").write_text(transcribe(ref, ffmpeg) + "\n", encoding="utf-8")
+            for k, start in enumerate(row.starts):
+                # Режем с запасом в 2 с по краям: Demucs точнее на более длинном куске.
+                pad = 2.0 if clean else 0.0
+                part = tmp / f"part{k}"
+                part.mkdir()
+                rough = part / "rough.wav"
+                cut(src, rough, max(0.0, start - pad), row.duration + 2 * pad, ffmpeg, sr=44100)
+                if clean:
+                    rough = separate_vocals(rough, part)
+                ref = d / f"{ref_name(k)}.wav"
+                cut(rough, ref, min(pad, start), row.duration, ffmpeg)
+                refs.append(ref)
+    # Лишние образцы от прошлой нарезки (если вариантов стало меньше) удаляем.
+    for old in d.glob("ref*.wav"):
+        if old not in refs:
+            old.unlink()
+            old.with_suffix(".txt").unlink(missing_ok=True)
+    for ref in refs:
+        ref.with_suffix(".txt").write_text(transcribe(ref, ffmpeg) + "\n", encoding="utf-8")
     meta = d / "voice.toml"
     if not meta.exists():
         meta.write_text(f'name = "{row.name}"\n', encoding="utf-8")
@@ -237,10 +323,10 @@ def main() -> None:
         shutil.copyfile(ROOT / "voices.example.csv", csv_path)
         raise SystemExit(f"Создан {csv_path.name} — впишите ссылки на персонажей и запустите снова.")
     example = ROOT / "voices.example.csv"
-    if not read_rows(csv_path) and example.exists() and read_rows(example):
-        # voices.csv создан старой версией без ссылок — берём готовый список из примера.
-        shutil.copyfile(example, csv_path)
-        print(f"В {csv_path.name} не было ссылок — взял готовый список персонажей из {example.name}.")
+    if example.exists():
+        new = merge_example(csv_path, example)
+        if new:
+            print(f"В {csv_path.name} добавлены новые персонажи из {example.name}: {', '.join(new)}")
     rows = [r for r in read_rows(csv_path) if not args.ids or r.id in args.ids]
     if not rows:
         raise SystemExit(f"В {csv_path.name} нет строк со ссылкой (колонка source).")
@@ -252,11 +338,13 @@ def main() -> None:
         if done and not args.force:
             print(f"· {row.name}: уже есть (пересоздать: --force {row.id})")
             continue
-        where = "поиск речи автоматически" if row.start is None else f"с {row.start:.1f} с"
-        print(f"→ {row.name}: {row.source} ({where}, {row.duration:.0f} с)…", flush=True)
+        where = ("поиск речи автоматически" if not row.starts
+                 else "с " + ", ".join(f"{t:.1f} с" for t in row.starts))
+        print(f"→ {row.name}: {row.source} ({where}, образцов: {row.count}, по {row.duration:.0f} с)…", flush=True)
         try:
             d = build_voice(row, clean=not args.no_clean, ffmpeg=ffmpeg)
-            print(f"  готово: {d / 'ref.txt'} → «{(d / 'ref.txt').read_text(encoding='utf-8').strip()}»")
+            for txt in sorted(d.glob("ref*.txt")):
+                print(f"  {txt.name}: «{txt.read_text(encoding='utf-8').strip()}»")
             ok.append(row.id)
         except Exception as e:  # noqa: BLE001 — один битый источник не должен останавливать остальные
             print(f"  ОШИБКА: {e}")

@@ -105,3 +105,51 @@ def test_auto_reference_skips_intro_and_squeezes_pauses():
     seconds = ref.size / sr
     assert 9.0 <= seconds <= 12.0  # 3 фразы по 3 с + 2 паузы по 0.3 с = 9.6 с
     assert abs(seconds - 9.6) < 0.15
+
+
+def test_auto_references_takes_distinct_parts():
+    from add_voices import auto_references
+
+    sr = 16000
+    wav = _phrases(sr, [(0.5, 2.0)] + [(2.0, 3.0)] * 9)  # 9 фраз по 3 с после интро
+    refs = auto_references(wav, sr, duration=10, count=3, skip_head=4.0)
+    assert len(refs) == 3
+    assert all(9.0 <= r.size / sr <= 12.0 for r in refs)
+    # просим больше, чем есть речи — лишних огрызков не делаем
+    assert len(auto_references(wav, sr, duration=10, count=5, skip_head=4.0)) == 3
+
+
+def test_variants_and_multiple_starts(tmp_path):
+    p = tmp_path / "voices.csv"
+    p.write_text("id;name;source;start;duration;variants\n"
+                 "briar;Брайер;https://y/1;;10;3\nvaas;Ваас;https://y/2;0:10|1:05;;\nold;Старый;https://y/3;;;\n",
+                 encoding="utf-8")
+    rows = {r.id: r for r in read_rows(p)}
+    assert rows["briar"].count == 3 and rows["briar"].starts == []
+    assert rows["vaas"].starts == [10, 65] and rows["vaas"].count == 2
+    assert rows["old"].count == 1
+
+
+def test_merge_example_adds_new_and_fills_empty(tmp_path):
+    from add_voices import merge_example
+
+    mine = tmp_path / "voices.csv"
+    mine.write_text("id;name;source;start;duration\narthas;Артас;https://my/link;;10\nshrek;Шрек;;;10\n",
+                    encoding="utf-8")
+    example = tmp_path / "voices.example.csv"
+    example.write_text("# комментарий\nid;name;source;start;duration;variants\n"
+                       "arthas;Артас;https://example/a;;10;2\nshrek;Шрек;https://example/s;;10;1\n"
+                       "briar;Брайер;https://example/b;;10;3\n", encoding="utf-8")
+    added = merge_example(mine, example)
+    assert set(added) == {"briar", "shrek"}
+    rows = {r.id: r for r in read_rows(mine)}
+    assert rows["arthas"].source == "https://my/link"  # своё не трогаем
+    assert rows["shrek"].source == "https://example/s"  # пустая заготовка заполнена
+    assert rows["briar"].count == 3
+    assert merge_example(mine, example) == []  # повторно — ничего
+
+
+def test_ref_name():
+    from add_voices import ref_name
+
+    assert [ref_name(i) for i in range(3)] == ["ref", "ref2", "ref3"]

@@ -41,7 +41,11 @@ class VoicesConfig:
     # "random" — каждое сообщение случайным голосом; "fixed" — у каждого модератора свой постоянный голос.
     moderator_mode: str = "fixed"
     avoid_repeat: int = 2
-    moderator_voices: dict[str, str] = field(default_factory=dict)
+    # Постоянный голос по роли для !tts (папка в voices/). Пусто — по moderator_mode.
+    broadcaster_voice: str = "illidan"
+    moderator_voice: str = "arthas"
+    vip_voice: str = ""
+    moderator_voices: dict[str, str] = field(default_factory=dict)  # конкретный ник → голос (важнее роли)
 
 
 @dataclass

@@ -307,3 +307,29 @@ def test_accentuator_survives_broken_word_model():
 
     acc._acc = Broken()
     assert acc("привет") == "привет"
+
+
+def test_load_voices_with_several_refs(tmp_path):
+    d = tmp_path / "briar"
+    d.mkdir()
+    for name, text in (("ref", "спокойно"), ("ref2", "КРОООВЬ"), ("ref3", "ещё")):
+        (d / f"{name}.wav").write_bytes(b"")
+        (d / f"{name}.txt").write_text(text, encoding="utf-8")
+    v = load_voices(tmp_path)[0]
+    assert [t for _, t in v.refs] == ["спокойно", "КРОООВЬ", "ещё"]
+    picked = {v.pick_ref(random.Random(i))[1] for i in range(30)}
+    assert picked == {"спокойно", "КРОООВЬ", "ещё"}
+
+
+def test_role_voices_owner_and_mods_and_reserved_from_viewers():
+    vs = [Voice(id=i, name=i, ref_wav=Path(f"{i}.wav"), ref_text="") for i in ("illidan", "arthas", "briar", "vaas")]
+    p = VoicePicker(vs, rng=random.Random(3), role_voices={"broadcaster": "illidan", "moderator": "arthas", "vip": ""})
+    assert p.for_role("kelhohn", "broadcaster").id == "illidan"
+    assert p.for_role("any_mod", "moderator").id == "arthas"
+    assert p.for_role("other_mod", "moderator").id == "arthas"
+    assert p.for_role("vip1", "vip").id == p.for_role("vip1", "vip").id  # VIP — свой постоянный
+    # зрителям не выпадают голоса стримера и модеров
+    assert {p.random_voice().id for _ in range(40)} == {"briar", "vaas"}
+    # ник из moderator_voices важнее роли
+    p2 = VoicePicker(vs, moderator_voices={"special": "vaas"}, role_voices={"moderator": "arthas"})
+    assert p2.for_role("special", "moderator").id == "vaas"

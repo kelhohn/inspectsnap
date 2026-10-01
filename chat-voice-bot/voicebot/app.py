@@ -92,7 +92,7 @@ class VoiceBot:
             if event.first_message or event.text.lstrip().lower().startswith(self.cfg.filters.tts_command.lower()):
                 log.info("Пропуск %s (%s): %s", event.login, decision.reason, event.text)
             return
-        voice = (self.picker.for_moderator(event.login)
+        voice = (self.picker.for_role(event.login, decision.reason)
                  if decision.reason in ("moderator", "broadcaster", "vip") else self.picker.random_voice())
         self.enqueue(Item(id=str(next(self._ids)), login=event.login, display_name=event.display_name,
                           text=decision.text, voice=voice, reason=decision.reason, message_id=event.id))

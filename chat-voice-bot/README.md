@@ -114,8 +114,11 @@ python -m voicebot
 
 ## Настройки, которые стоит знать (`config.toml`)
 
-- `voices.moderator_mode = "fixed"` — у каждого, кто пишет `!tts`, свой постоянный голос (узнаваемо);
-  закрепить вручную: `[voices.moderator_voices] ник = "arthas"`.
+- `voices.broadcaster_voice = "illidan"`, `moderator_voice = "arthas"`, `vip_voice = ""` — постоянный голос по роли
+  для `!tts`; эти голоса не выпадают зрителям в ФМ. Конкретному нику: `[voices.moderator_voices] ник = "vaas"`.
+- `voices.moderator_mode = "fixed"` — у кого нет голоса по роли/нику, у того свой постоянный голос.
+- Несколько образцов на персонажа: колонка `variants` в `voices.csv` (например Брайер — 3: спокойно, «КРОООВЬ», …).
+  Бот на каждое сообщение берёт случайный образец. Переделать уже готового персонажа: `add-voices.bat --force arthas`.
 - `filters.tts_roles = ["broadcaster", "moderator", "vip"]` — кому доступна `!tts`; уберите `"vip"`, чтобы только модерам.
 - `filters.voice_first_messages = false` — не озвучивать ФМ, только `!tts`.
 - `filters.banned_words` — сообщения с этими словами не озвучиваются вообще.

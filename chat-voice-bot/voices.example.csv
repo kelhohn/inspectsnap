@@ -1,20 +1,27 @@
 # Персонажи для нарезки: add-voices.bat (или python add_voices.py)
-# id      — имя папки (латиницей); name — подпись в оверлее
-# source  — ссылка на видео (YouTube, VK, ...) или путь к файлу
-# start   — откуда резать (секунды или мм:сс). ПУСТО = скрипт сам найдёт речь в первых 3 минутах ролика.
+# id       — имя папки (латиницей); name — подпись в оверлее
+# source   — ссылка на видео (YouTube, VK, ...) или путь к файлу
+# start    — откуда резать (секунды или мм:сс). ПУСТО = скрипт сам найдёт речь в первых 3 минутах ролика.
+#            Несколько моментов через | (0:12|1:05) — из каждого свой образец.
 # duration — длина образца, 8–12 с (по умолчанию 10)
+# variants — сколько разных образцов сделать (1–5): бот чередует их, персонаж звучит то спокойно, то с криком
 # Лучшие источники — подборки «все фразы персонажа» из игр: говорит один персонаж, без музыки.
 # Строки без source пропускаются — допишите свои ссылки (Губка Боб, Шрек и т.д.).
-id;name;source;start;duration
-arthas;Артас;https://www.youtube.com/watch?v=PKI0i5ud9tY;;10
-illidan;Иллидан;https://www.youtube.com/watch?v=_J-pEu_FCUI;;10
-kerrigan;Керриган;https://www.youtube.com/watch?v=u7qnU69UgAI;;10
-diablo;Диабло;https://www.youtube.com/watch?v=Zff8LhfLfcg;;10
-alarak;Аларак;https://www.youtube.com/watch?v=QgN0UoXd2IY;;10
-muradin;Мурадин;https://www.youtube.com/watch?v=MPSlTQf_ynY;;10
-cain;Декард Каин;https://www.youtube.com/watch?v=OU-9um8i1WU;;10
-sidorovich;Сидорович;https://www.youtube.com/watch?v=ctCNgP91Pp4;;10
-spongebob;Губка Боб;;;10
-patrick;Патрик;;;10
-shrek;Шрек;;;10
-donkey;Осёл;;;10
+id;name;source;start;duration;variants
+arthas;Артас;https://www.youtube.com/watch?v=PKI0i5ud9tY;;10;2
+illidan;Иллидан;https://www.youtube.com/watch?v=_J-pEu_FCUI;;10;2
+kerrigan;Керриган;https://www.youtube.com/watch?v=u7qnU69UgAI;;10;1
+diablo;Диабло;https://www.youtube.com/watch?v=Zff8LhfLfcg;;10;1
+alarak;Аларак;https://www.youtube.com/watch?v=QgN0UoXd2IY;;10;1
+muradin;Мурадин;https://www.youtube.com/watch?v=MPSlTQf_ynY;;10;1
+cain;Декард Каин;https://www.youtube.com/watch?v=OU-9um8i1WU;;10;1
+sidorovich;Сидорович;https://www.youtube.com/watch?v=ctCNgP91Pp4;;10;1
+briar;Брайер;https://www.youtube.com/watch?v=PQzEr_8q56A;;10;3
+johnny;Джонни Сильверхенд;https://www.youtube.com/watch?v=o0tZCrY6J7U;;10;2
+vaas;Ваас;https://www.youtube.com/watch?v=5rnGsb5kj-Q;;10;2
+geralt;Геральт;https://www.youtube.com/watch?v=QM-26eV6D6c;;10;1
+glados;ГЛаДОС;https://www.youtube.com/watch?v=7MvmlvgGjhI;;10;2
+spongebob;Губка Боб;;;10;1
+patrick;Патрик;;;10;1
+shrek;Шрек;;;10;1
+donkey;Осёл;;;10;1

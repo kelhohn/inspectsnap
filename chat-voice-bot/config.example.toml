@@ -28,6 +28,11 @@ dir = "voices"
 moderator_mode = "fixed"          # fixed — у каждого модера постоянный голос; random — каждый раз случайный
 avoid_repeat = 2                  # не повторять последние N голосов подряд
 
+# Постоянный голос по роли для !tts (имя папки в voices/). Пусто — по moderator_mode.
+broadcaster_voice = "illidan"     # вы, владелец канала
+moderator_voice = "arthas"        # все модераторы
+vip_voice = ""                    # VIP: пусто — у каждого свой постоянный
+
 [voices.moderator_voices]         # закрепить голос за модератором: ник = "папка голоса"
 # some_moderator = "arthas"
 

@@ -99,9 +99,10 @@ class F5Engine(Engine):
         self._ref_text = lru_cache(maxsize=256)(self.accent)
 
     def synth(self, text: str, voice: Voice) -> tuple[np.ndarray, int]:
-        ref_text = self._ref_text(voice.ref_text) if voice.ref_text else ""
+        ref_wav, ref_text = voice.pick_ref()
+        ref_text = self._ref_text(ref_text) if ref_text else ""
         wav, sr, _ = self.tts.infer(
-            ref_file=str(voice.ref_wav),
+            ref_file=str(ref_wav),
             ref_text=ref_text,
             gen_text=self.accent(text),
             nfe_step=self.cfg.f5_nfe_step,
@@ -125,7 +126,7 @@ class XttsEngine(Engine):
         self.sr = int(self.tts.synthesizer.output_sample_rate)
 
     def synth(self, text: str, voice: Voice) -> tuple[np.ndarray, int]:
-        wav = self.tts.tts(text=text, speaker_wav=str(voice.ref_wav), language=self.cfg.xtts_language,
+        wav = self.tts.tts(text=text, speaker_wav=str(voice.pick_ref()[0]), language=self.cfg.xtts_language,
                            speed=voice.speed)
         return np.asarray(wav, dtype=np.float32), self.sr
 
