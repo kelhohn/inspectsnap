@@ -4,3 +4,4 @@ out/
 voices/*/
 __pycache__/
 .venv/
+voices.csv

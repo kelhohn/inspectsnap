@@ -1,4 +1,8 @@
-# F5-TTS + ударения. Сначала поставьте PyTorch с CUDA (см. README).
+# F5-TTS + ударения + нарезка голосов. Сначала PyTorch с CUDA (setup.bat делает это сам).
 -r requirements.txt
 f5-tts
 ruaccent
+huggingface_hub
+yt-dlp
+imageio-ffmpeg
+demucs

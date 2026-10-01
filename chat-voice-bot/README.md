@@ -16,7 +16,21 @@ Twitch IRC ──► фильтр ФМ/модераторов ──► очер
      └── удаление/бан ────────────────────────┘
 ```
 
-## Установка (Windows, RTX 4070 Ti)
+## Быстрый старт (Windows) — 4 двойных клика
+
+1. **`setup.bat`** — ставит Python 3.11 (если нет), PyTorch с CUDA, все библиотеки, спрашивает ваш канал
+   и скачивает русскую модель F5-TTS. Первый раз — 15–30 минут (качается несколько гигабайт).
+2. Откройте **`voices.csv`** (Блокнотом или Excel) и впишите для персонажей ссылку на видео с русской озвучкой
+   и время, где он говорит один, 8–12 секунд. Потом **`add-voices.bat`** — скачает, вычистит музыку,
+   нарежет и распознает текст образца → `voices/<id>/`.
+3. **`test-voices.bat`** — озвучит мемные фразы всеми голосами и откроет папку `out` — слушайте.
+4. **`start.bat`** — бот подключается к чату. В OBS добавьте *Источник → Браузер*:
+   `http://127.0.0.1:8790/overlay`, 1920×1080, галочка **«Управлять звуком через OBS»**.
+
+Проверить без Twitch: **`test-chat.bat`** — пишете сообщения сами, бот их озвучивает.
+Если что-то упало — скопируйте текст ошибки из окна и пришлите.
+
+## Установка вручную
 
 1. **Python 3.11** с [python.org](https://www.python.org/downloads/) (при установке отметьте *Add to PATH*).
 2. В папке `chat-voice-bot`:
@@ -24,8 +38,9 @@ Twitch IRC ──► фильтр ФМ/модераторов ──► очер
    ```bat
    python -m venv .venv
    .venv\Scripts\activate
-   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
-   pip install -r requirements-f5.txt
+   pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
+   pip install -r requirements-f5.txt -c constraints.txt
+   python download_models.py
    ```
 
    Проверка, что видеокарта видна: `python -c "import torch; print(torch.cuda.is_available())"` → `True`.
@@ -37,7 +52,7 @@ Twitch IRC ──► фильтр ФМ/модераторов ──► очер
 
 ### Модели
 
-- **F5-TTS (русская):** откройте [Misha24-10/F5-TTS_RUSSIAN](https://huggingface.co/Misha24-10/F5-TTS_RUSSIAN),
+- **F5-TTS (русская):** `python download_models.py` скачает сам и пропишет пути. Если автовыбор ошибся — откройте [Misha24-10/F5-TTS_RUSSIAN](https://huggingface.co/Misha24-10/F5-TTS_RUSSIAN),
   вкладка *Files*. Скачайте чекпоинт (`.safetensors`/`.pt`) и `vocab.txt` нужной версии в `models/f5_russian/`
   и пропишите пути в `[engine] f5_ckpt_file` / `f5_vocab_file`. Сверьтесь с описанием модели:
   если там указана другая архитектура — поменяйте `f5_model` (например `F5TTS_Base`), и если модели не нужны
@@ -46,7 +61,8 @@ Twitch IRC ──► фильтр ФМ/модераторов ──► очер
 
 ### Голоса
 
-Положите персонажей в `voices/` — инструкция и советы по образцам в [voices/README.md](voices/README.md).
+Автоматически: ссылки в `voices.csv` → `python add_voices.py`. Вручную: положите персонажей в `voices/` —
+инструкция и советы по образцам в [voices/README.md](voices/README.md).
 
 ## Шаг 1. Выбрать движок: тест A/B
 
@@ -107,7 +123,9 @@ python -m pytest tests
 
 - **`torch.cuda.is_available()` = False** — переустановите PyTorch командой выше (с `--index-url .../cu126`),
   обновите драйвер NVIDIA.
-- **Ошибка про `torchcodec`/FFmpeg** — установите FFmpeg (shared-сборку, например с gyan.dev) и добавьте его `bin` в PATH.
+- **Ошибка про `torchcodec`/FFmpeg** — значит, встал PyTorch 2.9+. Переустановите 2.8 командой выше
+  (`setup.bat` делает именно так).
+- **`add_voices` не скачивает видео** — обновите загрузчик: `.venv\Scripts\python -m pip install -U yt-dlp`.
 - **Русский звучит как акцент/каша** — не указан русский чекпоинт F5 (`f5_ckpt_file`), либо не совпадает `f5_accent`
   с тем, на чём обучена модель.
 - **Голос «плывёт» или бормочет** — образец короче 5 с, с музыкой, или `ref.txt` не совпадает с речью.
