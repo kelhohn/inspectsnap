@@ -42,6 +42,14 @@ class Voice:
 
 
 _EXTRA_REF = re.compile(r"^ref(\d+)\.wav$")
+_FISH_ID = re.compile(r"[0-9a-f]{32}", re.I)
+
+
+def fish_id_from(value: object) -> str:
+    """fish_id можно вписать как ID или как ссылку на страницу голоса (https://fish.audio/m/<ID>/)."""
+    s = str(value or "").strip()
+    m = _FISH_ID.search(s) if "/" in s else None
+    return m.group(0).lower() if m else s
 
 
 def _read_text(path: Path) -> str:
@@ -60,7 +68,8 @@ def load_voices(directory: Path) -> list[Voice]:
                 meta = tomllib.load(f)
         if not meta.get("enabled", True):
             continue
-        if not wav.exists() and not meta.get("fish_id"):
+        fish_id = fish_id_from(meta.get("fish_id"))
+        if not wav.exists() and not fish_id:
             log.warning("Голос %s пропущен: нет ref.wav (и fish_id в voice.toml)", d.name)
             continue
         extra = sorted((int(m.group(1)), f) for f in d.iterdir() if (m := _EXTRA_REF.match(f.name)))
@@ -73,7 +82,7 @@ def load_voices(directory: Path) -> list[Voice]:
                 weight=float(meta.get("weight", 1.0)),
                 speed=float(meta.get("speed", 1.0)),
                 extra_refs=[(f, _read_text(f.with_suffix(".txt"))) for _, f in extra],
-                fish_id=str(meta.get("fish_id", "")),
+                fish_id=fish_id,
             )
         )
     return voices

@@ -398,3 +398,13 @@ def test_fish_voice_folder_without_ref_wav(tmp_path):
     (d / "voice.toml").write_text('name = "Брайер"\nfish_id = "xyz"\n', encoding="utf-8")
     v = load_voices(tmp_path)[0]
     assert v.fish_id == "xyz" and v.name == "Брайер"
+
+
+def test_fish_id_accepts_link_to_voice_page():
+    from voicebot.voices import fish_id_from
+
+    vid = "802e3bc2b27e49c2995d23ef70e6ac89"
+    assert fish_id_from(f"https://fish.audio/m/{vid}/") == vid
+    assert fish_id_from(f"https://fish.audio/ru/m/{vid.upper()}") == vid
+    assert fish_id_from(f"  {vid} ") == vid
+    assert fish_id_from(None) == ""
