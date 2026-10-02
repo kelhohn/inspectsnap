@@ -31,6 +31,7 @@ class Voice:
     weight: float = 1.0
     speed: float = 1.0
     extra_refs: list[tuple[Path, str]] = field(default_factory=list)  # ref2.wav, ref3.wav, …
+    fish_id: str = ""  # ID голоса в библиотеке Fish Audio (voice.toml: fish_id = "...")
 
     @property
     def refs(self) -> list[tuple[Path, str]]:
@@ -53,14 +54,14 @@ def load_voices(directory: Path) -> list[Voice]:
         return voices
     for d in sorted(p for p in directory.iterdir() if p.is_dir()):
         wav = d / "ref.wav"
-        if not wav.exists():
-            log.warning("Голос %s пропущен: нет ref.wav", d.name)
-            continue
         meta = {}
         if (d / "voice.toml").exists():
             with (d / "voice.toml").open("rb") as f:
                 meta = tomllib.load(f)
         if not meta.get("enabled", True):
+            continue
+        if not wav.exists() and not meta.get("fish_id"):
+            log.warning("Голос %s пропущен: нет ref.wav (и fish_id в voice.toml)", d.name)
             continue
         extra = sorted((int(m.group(1)), f) for f in d.iterdir() if (m := _EXTRA_REF.match(f.name)))
         voices.append(
@@ -72,6 +73,7 @@ def load_voices(directory: Path) -> list[Voice]:
                 weight=float(meta.get("weight", 1.0)),
                 speed=float(meta.get("speed", 1.0)),
                 extra_refs=[(f, _read_text(f.with_suffix(".txt"))) for _, f in extra],
+                fish_id=str(meta.get("fish_id", "")),
             )
         )
     return voices

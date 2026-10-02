@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import random
 from pathlib import Path
@@ -365,3 +366,35 @@ def test_tts_with_character_name_uses_that_voice():
         return [(i.voice.id, i.text) for i in bot.pending]
 
     assert asyncio.run(go()) == [("v1", "КРОООВЬ!"), ("v1", "свой текст")]
+
+
+def test_fish_engine_uses_fish_id_or_own_sample(tmp_path, monkeypatch):
+    pytest.importorskip("fishaudio")
+    from voicebot.audio import to_wav_bytes
+    from voicebot.config import EngineConfig
+    from voicebot.engines import FishEngine
+
+    calls = []
+
+    class FakeTTS:
+        def convert(self, **kw):
+            calls.append(kw)
+            return to_wav_bytes(np.zeros(4410, dtype=np.float32), 44100)
+
+    eng = FishEngine(EngineConfig(name="fish", fish_api_key="test-key"))
+    eng.client = type("FakeClient", (), {"tts": FakeTTS()})()
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"RIFF")
+    wav, sr = eng.synth("привет", Voice(id="a", name="A", ref_wav=ref, ref_text="текст", fish_id="abc123"))
+    assert sr == 44100 and wav.size == 4410
+    assert calls[-1]["reference_id"] == "abc123" and calls[-1]["format"] == "wav"
+    eng.synth("привет", Voice(id="b", name="B", ref_wav=ref, ref_text="текст"))
+    assert "reference_id" not in calls[-1] and calls[-1]["references"][0].text == "текст"
+
+
+def test_fish_voice_folder_without_ref_wav(tmp_path):
+    d = tmp_path / "briar"
+    d.mkdir()
+    (d / "voice.toml").write_text('name = "Брайер"\nfish_id = "xyz"\n', encoding="utf-8")
+    v = load_voices(tmp_path)[0]
+    assert v.fish_id == "xyz" and v.name == "Брайер"

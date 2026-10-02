@@ -62,6 +62,10 @@ class EngineConfig:
     # XTTS-v2
     xtts_model: str = "tts_models/multilingual/multi-dataset/xtts_v2"
     xtts_language: str = "ru"
+    # Fish Audio (облако, платно по их тарифу). Ключ — только в вашем config.toml, не в репозитории.
+    fish_api_key: str = ""
+    fish_model: str = "s2-pro"
+    fish_latency: str = "balanced"  # balanced — быстрее, normal — качественнее
 
 
 @dataclass

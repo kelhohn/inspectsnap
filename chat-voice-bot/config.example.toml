@@ -37,7 +37,7 @@ vip_voice = ""                    # VIP: пусто — у каждого сво
 # some_moderator = "arthas"
 
 [engine]
-name = "f5"                       # f5 | xtts | dummy (dummy — без нейросети, для проверки)
+name = "f5"                       # f5 | xtts | fish | dummy (dummy — без нейросети, для проверки)
 device = "cuda"
 # F5-TTS: русская модель Misha24-10/F5-TTS_RUSSIAN (см. README, раздел «Модели»)
 f5_model = "F5TTS_v1_Base"
@@ -49,6 +49,11 @@ f5_accent = true                  # ударения через RUAccent (рус
 # XTTS-v2 скачивается сам при первом запуске
 xtts_model = "tts_models/multilingual/multi-dataset/xtts_v2"
 xtts_language = "ru"
+# Fish Audio (облако, платно по их тарифу): name = "fish". Голос персонажа — fish_id в voices/<папка>/voice.toml,
+# без fish_id клонируется ваш ref.wav. Ключ никому не показывайте и не выкладывайте.
+fish_api_key = ""
+fish_model = "s2-pro"
+fish_latency = "balanced"         # balanced — быстрее, normal — качественнее
 
 [audio]
 # device  — звук в колонки/наушники (как у обычной программы): вы его слышите, OBS пишет через «Звук рабочего стола».

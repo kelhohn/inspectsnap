@@ -6,3 +6,4 @@ huggingface_hub
 yt-dlp
 imageio-ffmpeg
 demucs
+fish-audio-sdk

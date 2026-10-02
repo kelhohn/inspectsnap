@@ -35,7 +35,7 @@ PHRASES = [
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--config", default="config.toml")
-    p.add_argument("--engines", nargs="+", default=["f5", "xtts"], choices=["f5", "xtts", "dummy"])
+    p.add_argument("--engines", nargs="+", default=["f5", "xtts"], choices=["f5", "xtts", "fish", "dummy"])
     p.add_argument("--voices", nargs="*", help="id голосов (имена папок); по умолчанию все")
     p.add_argument("--phrases", nargs="*", help="свои фразы вместо встроенных")
     p.add_argument("--out", default="out")

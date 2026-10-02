@@ -141,7 +141,7 @@ def main() -> None:
     p.add_argument("command", nargs="?", default="run", choices=["run", "console", "devices"],
                    help="run — Twitch-чат; console — сообщения с клавиатуры; devices — список звуковых устройств")
     p.add_argument("--config", default="config.toml")
-    p.add_argument("--engine", choices=["f5", "xtts", "dummy"], help="переопределить движок из конфига")
+    p.add_argument("--engine", choices=["f5", "xtts", "fish", "dummy"], help="переопределить движок из конфига")
     p.add_argument("--audio", choices=["device", "overlay"], help="куда звук: колонки или страница-оверлей")
     p.add_argument("--open", choices=["panel", "overlay"], help="открыть страницу в браузере, когда бот готов")
     p.add_argument("-v", "--verbose", action="store_true")

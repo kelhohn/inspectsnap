@@ -131,12 +131,56 @@ class XttsEngine(Engine):
         return np.asarray(wav, dtype=np.float32), self.sr
 
 
+class FishEngine(Engine):
+    """Fish Audio API. Голос: fish_id из voice.toml (голос из их библиотеки) или клон по вашему ref.wav."""
+
+    name = "fish"
+
+    def __init__(self, cfg: EngineConfig):
+        if not cfg.fish_api_key:
+            raise SystemExit("Для движка fish впишите ключ в config.toml: [engine] fish_api_key = \"...\"")
+        from fishaudio import FishAudio
+
+        self.cfg = cfg
+        self.client = FishAudio(api_key=cfg.fish_api_key)
+
+    def synth(self, text: str, voice: Voice) -> tuple[np.ndarray, int]:
+        kwargs = {}
+        if voice.fish_id:
+            kwargs["reference_id"] = voice.fish_id
+        else:
+            from fishaudio.types import ReferenceAudio
+
+            ref_wav, ref_text = voice.pick_ref()
+            kwargs["references"] = [ReferenceAudio(audio=ref_wav.read_bytes(), text=ref_text)]
+        data = self.client.tts.convert(text=text, format="wav", latency=self.cfg.fish_latency,
+                                       speed=voice.speed, model=self.cfg.fish_model, **kwargs)
+        return decode_wav(data)
+
+
+def decode_wav(data: bytes) -> tuple[np.ndarray, int]:
+    import io
+    import wave
+
+    with wave.open(io.BytesIO(data)) as w:
+        sr, ch, width = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        raw = w.readframes(w.getnframes())
+    if width != 2:
+        raise ValueError(f"неожиданный формат WAV от сервиса: {width * 8} бит")
+    pcm = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768
+    if ch > 1:
+        pcm = pcm.reshape(-1, ch).mean(axis=1)
+    return pcm, sr
+
+
 def create_engine(cfg: EngineConfig, name: str | None = None) -> Engine:
     name = name or cfg.name
     if name == "f5":
         return F5Engine(cfg)
     if name == "xtts":
         return XttsEngine(cfg)
+    if name == "fish":
+        return FishEngine(cfg)
     if name == "dummy":
         return DummyEngine()
-    raise ValueError(f"Неизвестный движок {name!r}: f5 | xtts | dummy")
+    raise ValueError(f"Неизвестный движок {name!r}: f5 | xtts | fish | dummy")
