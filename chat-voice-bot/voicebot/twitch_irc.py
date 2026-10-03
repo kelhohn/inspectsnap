@@ -79,6 +79,7 @@ class ChatMessage:
     is_moderator: bool
     is_broadcaster: bool
     is_vip: bool
+    reward_id: str = ""  # награда за баллы канала с текстом (тег custom-reward-id)
 
 
 @dataclass
@@ -107,6 +108,7 @@ def to_event(line: IrcLine) -> ChatMessage | Moderation | None:
             is_moderator=line.tags.get("mod") == "1" or "moderator" in badge_names,
             is_broadcaster="broadcaster" in badge_names,
             is_vip="vip" in badge_names or line.tags.get("vip") == "1",
+            reward_id=line.tags.get("custom-reward-id", ""),
         )
     if line.command == "CLEARMSG":
         return Moderation(message_id=line.tags.get("target-msg-id", ""), login=line.tags.get("login", "").lower())

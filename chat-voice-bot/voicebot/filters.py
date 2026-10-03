@@ -19,7 +19,7 @@ _LETTERS = re.compile(r"[a-zа-яё]", re.IGNORECASE)
 @dataclass
 class Decision:
     speak: bool
-    reason: str  # "first" | "moderator" | "broadcaster" | "vip" | почему пропущено
+    reason: str  # "first" | "points" | "moderator" | "broadcaster" | "vip" | почему пропущено
     text: str = ""
 
 
@@ -69,8 +69,15 @@ def decide(msg: ChatMessage, cfg: FilterConfig) -> Decision:
         return Decision(False, "игнор-лист")
 
     text = msg.text.strip()
-    spoken = strip_tts_command(text, cfg)
-    if spoken is not None:
+    spoken = None if msg.reward_id else strip_tts_command(text, cfg)
+    if msg.reward_id:
+        # Награда за баллы канала: текст из награды, озвучка любому зрителю.
+        if not cfg.voice_rewards:
+            return Decision(False, "награды за баллы выключены")
+        if cfg.reward_ids and msg.reward_id not in cfg.reward_ids:
+            return Decision(False, f"другая награда ({msg.reward_id})")
+        reason = "points"
+    elif spoken is not None:
         # !tts текст — озвучка по команде: только VIP, модераторы и владелец канала.
         if not can_use_tts(msg, cfg):
             return Decision(False, f"{cfg.tts_command} только для VIP, модераторов и стримера")
@@ -111,7 +118,7 @@ _ALIASES = {
 def parse_command(msg: ChatMessage, cfg: FilterConfig) -> Command | None:
     """Управление: «!tts skip», «!tts громкость 60». Одно служебное слово после !tts —
     команда; всё остальное («!tts стоп, это ограбление») — текст для озвучки."""
-    if not can_use_tts(msg, cfg):
+    if msg.reward_id or not can_use_tts(msg, cfg):
         return None
     rest = strip_tts_command(msg.text, cfg)
     if not rest:

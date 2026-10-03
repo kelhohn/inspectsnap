@@ -18,6 +18,9 @@ class TwitchConfig:
 @dataclass
 class FilterConfig:
     voice_first_messages: bool = True  # автоматически озвучивать первое сообщение зрителя (ФМ)
+    # Награда за баллы канала «с текстом» — текст озвучивается случайным голосом.
+    voice_rewards: bool = True
+    reward_ids: list[str] = field(default_factory=list)  # пусто — любая награда с текстом
     # «!tts текст» — озвучка по команде; кому можно: broadcaster, moderator, vip.
     tts_command: str = "!tts"
     tts_roles: list[str] = field(default_factory=lambda: ["broadcaster", "moderator", "vip"])

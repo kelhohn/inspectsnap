@@ -21,8 +21,10 @@ from .voices import Voice, VoicePicker
 
 log = logging.getLogger(__name__)
 
-PRIORITY = {"moderator": 0, "broadcaster": 0, "vip": 0, "first": 1}
-REASON_LABEL = {"moderator": "модератор", "broadcaster": "стример", "first": "первое сообщение", "vip": "VIP"}
+# За баллы заплатили — такие сообщения не вытесняются ФМ при полной очереди.
+PRIORITY = {"moderator": 0, "broadcaster": 0, "vip": 0, "points": 0, "first": 1}
+REASON_LABEL = {"moderator": "модератор", "broadcaster": "стример", "first": "первое сообщение", "vip": "VIP",
+                "points": "за баллы"}
 
 
 @dataclass
@@ -81,7 +83,8 @@ class VoiceBot:
             self.moderate(event)
             return
         tags = "".join(t for t, on in (("[стример]", event.is_broadcaster), ("[мод]", event.is_moderator),
-                                       ("[VIP]", event.is_vip), ("[ФМ]", event.first_message)) if on)
+                                       ("[VIP]", event.is_vip), ("[ФМ]", event.first_message),
+                                       ("[баллы]", bool(event.reward_id))) if on)
         log.info("Чат %s%s: %s", event.display_name, tags, event.text)
         cmd = parse_command(event, self.cfg.filters)
         if cmd is not None:
@@ -92,9 +95,13 @@ class VoiceBot:
             return
         decision = decide(event, self.cfg.filters)
         if not decision.speak:
-            if event.first_message or event.text.lstrip().lower().startswith(self.cfg.filters.tts_command.lower()):
+            if event.reward_id:
+                log.info("Пропуск награды %s (%s): %s", event.login, decision.reason, event.text)
+            elif event.first_message or event.text.lstrip().lower().startswith(self.cfg.filters.tts_command.lower()):
                 log.info("Пропуск %s (%s): %s", event.login, decision.reason, event.text)
             return
+        if decision.reason == "points":
+            log.info("Награда за баллы, ID %s (его можно вписать в [filters] reward_ids)", event.reward_id)
         text = decision.text
         if decision.reason in ("moderator", "broadcaster", "vip"):
             # «!tts брайер», «!tts брайер: текст», «!tts фраза» — выбор персонажа/реплики.

@@ -26,6 +26,7 @@ def parse_console_line(line: str) -> ChatMessage | None:
         !tts текст         → вы (владелец канала) озвучиваете текст; !tts skip — команда
         mod ник: !tts ...  → то же от модератора;   vip ник: !tts ... → от VIP
         user ник: текст    → обычный зритель (не озвучивается, !tts ему недоступна)
+        баллы ник: текст   → зритель потратил баллы канала на озвучку (случайный голос)
     """
     line = line.strip()
     if not line:
@@ -33,13 +34,14 @@ def parse_console_line(line: str) -> ChatMessage | None:
     kind, login, text = "fm", "viewer", line
     if line.lower().startswith(("!tts", "!озвучка")):
         kind, login = "owner", "streamer"
-    for prefix in ("mod ", "vip ", "user "):
+    for prefix in ("mod ", "vip ", "user ", "баллы "):
         if line.startswith(prefix) and ":" in line:
             login, text = line[len(prefix):].split(":", 1)
             kind, login, text = prefix.strip(), login.strip().lower(), text.strip()
     return ChatMessage(id="", login=login, display_name=login, text=text,
                        first_message=kind == "fm", is_moderator=kind == "mod",
-                       is_broadcaster=kind == "owner", is_vip=kind == "vip")
+                       is_broadcaster=kind == "owner", is_vip=kind == "vip",
+                       reward_id="console-reward" if kind == "баллы" else "")
 
 
 async def _stdin_lines():

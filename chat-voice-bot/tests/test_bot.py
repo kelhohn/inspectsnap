@@ -408,3 +408,52 @@ def test_fish_id_accepts_link_to_voice_page():
     assert fish_id_from(f"https://fish.audio/ru/m/{vid.upper()}") == vid
     assert fish_id_from(f"  {vid} ") == vid
     assert fish_id_from(None) == ""
+
+
+# ---------- баллы канала ----------
+
+REWARD_MSG = ("@badges=;custom-reward-id=11111111-2222-3333-4444-555555555555;display-name=Zritel;first-msg=0;"
+              "id=r1;mod=0 :zritel!zritel@zritel.tmi.twitch.tv PRIVMSG #chan :скажи привет")
+
+
+def test_parse_reward_message():
+    e = to_event(parse_line(REWARD_MSG))
+    assert e.reward_id == "11111111-2222-3333-4444-555555555555" and e.text == "скажи привет"
+    assert to_event(parse_line(FIRST_MSG)).reward_id == ""
+
+
+def test_reward_voiced_for_any_viewer_and_filtered_by_id():
+    cfg = FilterConfig()
+    m = to_event(parse_line(REWARD_MSG))
+    d = decide(m, cfg)
+    assert d.speak and d.reason == "points" and d.text == "скажи привет"
+    cfg.reward_ids = ["другая"]
+    assert not decide(m, cfg).speak
+    cfg.reward_ids = [m.reward_id]
+    assert decide(m, cfg).speak
+    cfg.voice_rewards = False
+    assert not decide(m, cfg).speak
+    # текст награды не становится командой, даже у модератора
+    mod = msg("!tts skip", first=False, mod=True)
+    mod.reward_id = "x"
+    assert parse_command(mod, FilterConfig()) is None
+    assert decide(mod, FilterConfig()).reason == "points"
+
+
+def test_reward_uses_random_viewer_voice_not_role_voice():
+    async def go():
+        bot, overlay = make_bot()
+        bot.picker.role_voices = {"broadcaster": "v0"}
+        m = msg("за баллы", first=False, login="zritel")
+        m.reward_id = "r"
+        await bot.handle_event(m)
+        assert bot.pending[0].reason == "points" and bot.pending[0].voice.id != "v0"
+
+    asyncio.run(go())
+
+
+def test_console_reward_line():
+    from voicebot.__main__ import parse_console_line
+
+    m = parse_console_line("баллы petya: привет чат")
+    assert m.reward_id and m.login == "petya" and m.text == "привет чат" and not m.first_message
